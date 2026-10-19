@@ -50,7 +50,7 @@ body.art .artlabel{display:inline-block}
 #view{width:100%;max-width:640px;aspect-ratio:4/3;display:block;border:2px solid var(--line);border-radius:6px;background:#000;image-rendering:auto}
 .dun{display:grid;grid-template-columns:minmax(0,640px) minmax(0,1fr);gap:8px}
 @media (max-width:760px){.dun{grid-template-columns:1fr}}
-#mini{width:154px;height:154px;border:1px solid var(--line);background:#111;touch-action:none}
+#mini{width:224px;height:224px;max-width:100%;cursor:crosshair;border:1px solid var(--line);background:#111;touch-action:none}
 #full{width:min(100%,520px);aspect-ratio:1/1;border:1px solid var(--line);background:#111;touch-action:none}
 .pad{display:grid;grid-template-columns:repeat(3,52px);gap:4px}
 .pad button{height:44px;font-size:18px}
@@ -497,7 +497,7 @@ function renderDungeon(){
       <button data-k="a" aria-label="หมุนซ้าย">↶</button><button data-k="s" aria-label="ถอยหลัง">↓</button><button data-k="d" aria-label="หมุนขวา">↷</button></div>
       <div class="row"><button id="bMap">แผนที่ (M)</button><button id="bAct">ใช้/เก็บ (Space)</button><button id="bParty">ปาร์ตี้</button><button id="bItem">ไอเทม</button></div></div></div>
     <div class="panel"><div class="row" style="justify-content:space-between"><b>Mini Map</b><span class="small">${DIRN[S.map.dir]} · ชั้น 1</span></div>
-      <canvas id="mini" width="154" height="154"></canvas>${mapToolbar()}
+      <canvas id="mini" width="224" height="224"></canvas><p class="small" style="margin:2px 0">คลิก/ลากบนกริดเพื่อวาด · วาดล่วงหน้าได้ · คลิกขวา = ลบ</p>${mapToolbar()}
       <div class="small" style="margin-top:6px">Danger <span class="meter"><i id="danger"></i></span></div>
       <div id="dmsg" class="small" style="margin-top:6px"></div>
       <div class="party" style="margin-top:6px">${partyChars().map(c=>`<div class="pm ${alive(c)?'':'dead'}"><b>${c.name}</b><br>${CLS[c.cls].th} Lv${c.lv}
@@ -630,10 +630,14 @@ function drawMapCanvas(cv, cells, ox, oy, showPlayer){
   const g = cv.getContext("2d"), m = S.map, W = cv.width, cs = W / cells;
   g.fillStyle = "#111"; g.fillRect(0,0,W,W);
   for (let j=0;j<cells;j++) for (let i=0;i<cells;i++){ const x=ox+i, y=oy+j; if (x<0||y<0||x>=m.N||y>=m.N) continue;
-    if (!m.seen[y][x]){ g.fillStyle="#1a1a1a"; g.fillRect(i*cs,j*cs,cs,cs); continue; }
-    g.fillStyle = m.draw.floor[y][x] ? FCOL[m.draw.floor[y][x]] : "#2a2a24"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2);
+    const sn = m.seen[y][x], fc = m.draw.floor[y][x];
+    g.fillStyle = fc ? FCOL[fc] : (sn ? "#2a2a24" : "#161614"); g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2);
+    if (fc && !sn){ g.fillStyle="rgba(0,0,0,.35)"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2); } // pre-drawn (not yet visited)
     const ic = m.draw.icon[x+","+y]; if (ic){ g.fillStyle="#fff"; g.font=`${cs*.6}px sans-serif`; g.textAlign="center"; g.fillText(ICONCH[ic]||"?", i*cs+cs/2, j*cs+cs*.72); g.textAlign="left"; }
     if (m.draw.memo[x+","+y]){ g.fillStyle="#f0d060"; g.fillRect(i*cs+cs-5,j*cs+1,4,4); } }
+  // grid lines on every cell so the player can draw anywhere
+  g.strokeStyle="rgba(232,226,207,.13)"; g.lineWidth=1;
+  for (let k=0;k<=cells;k++){ g.beginPath(); g.moveTo(k*cs+.5,0); g.lineTo(k*cs+.5,W); g.stroke(); g.beginPath(); g.moveTo(0,k*cs+.5); g.lineTo(W,k*cs+.5); g.stroke(); }
   g.strokeStyle="#e8e2cf"; g.lineWidth=Math.max(2,cs/8);
   for (let j=0;j<=cells;j++) for (let i=0;i<=cells;i++){ const x=ox+i, y=oy+j;
     if (x>=0&&x<m.N&&y>=0&&y<=m.N&&i<cells&&m.draw.wN[y][x]){ g.beginPath(); g.moveTo(i*cs,j*cs); g.lineTo((i+1)*cs,j*cs); g.stroke(); }
@@ -644,20 +648,25 @@ function drawMapCanvas(cv, cells, ox, oy, showPlayer){
     g.beginPath(); g.moveTo(0,-cs*.38); g.lineTo(cs*.3,cs*.3); g.lineTo(-cs*.3,cs*.3); g.closePath(); g.fill(); g.restore(); }
 }
 function drawMini(){ const cv=$("#mini"); if (cv) drawMapCanvas(cv, 7, S.map.px-3, S.map.py-3, true); }
+let dragging = false, dragKey = "";
 function bindDraw(cv, cells, origin){
   const handler = ev => { ev.preventDefault(); const r = cv.getBoundingClientRect(), [ox,oy] = origin();
     const fx = (ev.clientX - r.left) / r.width * cells, fy = (ev.clientY - r.top) / r.height * cells;
-    const i = Math.floor(fx), j = Math.floor(fy), x = ox+i, y = oy+j, m = S.map; if (x<0||y<0||x>=m.N||y>=m.N || !m.seen[y][x]) return;
+    const i = Math.floor(fx), j = Math.floor(fy), x = ox+i, y = oy+j, m = S.map; if (x<0||y<0||x>=m.N||y>=m.N) return;
+    if (ev.type==="pointermove"){ if (dragKey===x+","+y || (mapTool.mode!=="floor" && mapTool.mode!=="erase")) return; } dragKey = x+","+y;
     const dx = fx - i, dy = fy - j, k = x+","+y;
     if (mapTool.mode==="wall"){ const e = Math.min(dx,1-dx,dy,1-dy);
       if (e===dy) m.draw.wN[y][x]=!m.draw.wN[y][x]; else if (e===1-dy) m.draw.wN[y+1][x]=!m.draw.wN[y+1][x];
       else if (e===dx) m.draw.wW[y][x]=!m.draw.wW[y][x]; else m.draw.wW[y][x+1]=!m.draw.wW[y][x+1]; }
-    else if (mapTool.mode==="floor") m.draw.floor[y][x] = m.draw.floor[y][x]===mapTool.color ? 0 : mapTool.color;
+    else if (mapTool.mode==="floor") m.draw.floor[y][x] = (ev.type==="pointerdown" && m.draw.floor[y][x]===mapTool.color) ? 0 : mapTool.color;
     else if (mapTool.mode==="icon") m.draw.icon[k] = m.draw.icon[k]===mapTool.icon ? undefined : mapTool.icon;
     else if (mapTool.mode==="memo"){ memoPrompt(x,y); return; }
     else { m.draw.floor[y][x]=0; delete m.draw.icon[k]; delete m.draw.memo[k]; }
     drawMini(); const f=$("#full"); if (f) drawMapCanvas(f, m.N, 0, 0, true); };
-  cv.onpointerdown = handler; cv.oncontextmenu = ev => { ev.preventDefault(); const sv=mapTool.mode; mapTool.mode="erase"; handler(ev); mapTool.mode=sv; };
+  cv.onpointerdown = ev => { dragging = true; dragKey = ""; try{cv.setPointerCapture(ev.pointerId)}catch(e){} handler(ev); };
+  cv.onpointermove = ev => { if (dragging) handler(ev); };
+  cv.onpointerup = cv.onpointercancel = () => { dragging = false; };
+  cv.oncontextmenu = ev => { ev.preventDefault(); const sv=mapTool.mode; mapTool.mode="erase"; handler(ev); mapTool.mode=sv; };
 }
 function memoPrompt(x,y){ const k=x+","+y; overlay(`<h2>Memo (${x},${y})</h2><input id="memoIn" maxlength="40" value="${esc(S.map.draw.memo[k]||'')}" style="width:100%;padding:6px">
   <div class="row" style="margin-top:6px"><button id="memoOk">บันทึก</button><button id="cls">ยกเลิก</button></div>`);
@@ -667,7 +676,7 @@ let fullOpen = false;
 function openFullMap(){ fullOpen = true; paused = true;
   overlay(`<div class="row" style="justify-content:space-between"><h2 style="margin:0">แผนที่ชั้น 1 — ${mapCompletion()}%</h2><span class="small">เวลาหยุด</span></div>
     <canvas id="full" width="520" height="520"></canvas>${mapToolbar()}
-    <p class="small">คลิกซ้าย = วาดตามเครื่องมือ · คลิกขวา = ลบ · ผนัง: คลิกใกล้ขอบช่อง · วาดได้เฉพาะช่องที่เคยเห็น</p>
+    <p class="small">คลิกซ้าย = วาดตามเครื่องมือ · คลิกขวา = ลบ · ผนัง: คลิกใกล้ขอบช่อง · ลากเพื่อระบายหลายช่อง · วาดล่วงหน้าในช่องที่ยังไม่เคยไปได้ (แสดงสีเข้มกว่าจนกว่าจะเดินถึง) · เดินแล้วระบายพื้นให้อัตโนมัติ (Auto Floor)</p>
     <div class="tw small">${Object.entries(S.map.draw.memo).filter(([k,v])=>v).map(([k,v])=>`(${k}) ${esc(v)}`).join(" · ")}</div>
     <div class="row"><button id="closeMap">ปิดแผนที่ (M)</button></div>`);
   drawMapCanvas($("#full"), S.map.N, 0, 0, true); bindToolbar();

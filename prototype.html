@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Himmaparn Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&family=Sarabun:wght@400;600&display=swap">
+<style>
+/* Layout: single dark game shell — top status bar, one active screen, bottom controls */
+:root{
+  --bg:#0f1410; --panel:#18211a; --panel2:#202c22; --line:#3a4a36; --fg:#e8e2cf; --dim:#a39c86;
+  --gold:#d6a84a; --red:#d0563f; --blue:#5aa6d6; --green:#7fbf5a; --grey:#8a8a80; --yellow:#f0d060;
+  --display:"Chakra Petch","Sarabun",sans-serif; --body:"Sarabun","Tahoma",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px}
+*{box-sizing:border-box}
+button{font-family:var(--body);font-size:14px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+  border-radius:4px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--gold)} button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button:disabled{opacity:.4;cursor:not-allowed} button.on{background:var(--gold);color:#1a1408;border-color:var(--gold)}
+h1,h2,h3{font-family:var(--display);margin:4px 0 8px;text-wrap:balance} h2{font-size:20px;color:var(--gold)} h3{font-size:16px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:6px;font-variant-numeric:tabular-nums}
+.bar .grow{flex:1}
+.meter{display:inline-block;width:90px;height:9px;background:#2a2a22;border-radius:5px;overflow:hidden;vertical-align:middle}
+.meter i{display:block;height:100%;background:var(--green)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;min-width:0}
+/* Thai ornament border placeholder (กระหนก-like corner pattern) */
+.orn{position:relative;border:2px solid var(--gold);border-radius:4px;padding:12px;
+  background-image:repeating-linear-gradient(45deg,transparent 0 6px,rgba(214,168,74,.06) 6px 12px)}
+.orn::before,.orn::after{content:"❖";position:absolute;color:var(--gold);font-size:14px;top:-10px;left:8px;background:var(--bg);padding:0 3px}
+.orn::after{left:auto;right:8px}
+.grid{display:grid;gap:8px} .g2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))} .g4{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.small{font-size:12.5px;color:var(--dim)} .gold{color:var(--gold)} .red{color:var(--red)} .blue{color:var(--blue)} .green{color:var(--green)}
+table{border-collapse:collapse;width:100%;font-size:13px} td,th{border:1px solid var(--line);padding:3px 6px;text-align:left} th{background:var(--panel2)}
+.tw{overflow-x:auto}
+.portrait{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#5a4a30 0 22%,transparent 23%),radial-gradient(ellipse at 50% 95%,#5a4a30 0 45%,transparent 46%),#2b2418;
+  border:2px solid var(--gold);display:grid;place-items:center;font-family:var(--display);font-weight:600;color:var(--gold);flex:none}
+.npc{display:flex;gap:10px;align-items:center;text-align:left;width:100%}
+.artlabel{display:none;font-size:11px;background:#3b1f4a;color:#f3d8ff;border:1px dashed #c88ae8;padding:1px 4px;border-radius:3px;margin:2px 0}
+body.art .artlabel{display:inline-block}
+#view{width:100%;max-width:640px;aspect-ratio:4/3;display:block;border:2px solid var(--line);border-radius:6px;background:#000;image-rendering:auto}
+.dun{display:grid;grid-template-columns:minmax(0,640px) minmax(0,1fr);gap:8px}
+@media (max-width:760px){.dun{grid-template-columns:1fr}}
+#mini{width:154px;height:154px;border:1px solid var(--line);background:#111;touch-action:none}
+#full{width:min(100%,520px);aspect-ratio:1/1;border:1px solid var(--line);background:#111;touch-action:none}
+.pad{display:grid;grid-template-columns:repeat(3,52px);gap:4px}
+.pad button{height:44px;font-size:18px}
+.party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.pm{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px;font-size:13px;min-width:0}
+.pm.act{border-color:var(--gold)} .pm.dead{opacity:.45}
+.enemies{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:170px;align-items:flex-end}
+.ecard{width:150px;background:linear-gradient(#2a2216,#17130c);border:2px solid #6b5326;border-radius:6px;padding:6px;text-align:center;cursor:pointer;position:relative}
+.ecard.sel{border-color:var(--yellow);box-shadow:0 0 10px rgba(240,208,96,.4)} .ecard.dead{opacity:.25;pointer-events:none}
+.ecard.elite{border-color:var(--red)}
+.sil{height:86px;display:grid;place-items:center}
+.float{position:absolute;left:0;right:0;top:20px;font-family:var(--display);font-size:20px;font-weight:600;pointer-events:none;animation:up .9s ease-out forwards;text-shadow:0 1px 2px #000}
+@keyframes up{from{transform:translateY(0);opacity:1}to{transform:translateY(-34px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.float{animation:none}}
+.log{height:130px;overflow:auto;font-size:12.5px;background:#0c100c;border:1px solid var(--line);padding:6px;border-radius:4px}
+.cmds{display:flex;flex-wrap:wrap;gap:6px}
+.hpbar{height:6px;background:#331;border-radius:3px;overflow:hidden;margin:2px 0} .hpbar i{display:block;height:100%;background:var(--red)}
+.mpbar i{background:var(--blue)}
+.tag{display:inline-block;padding:0 5px;border-radius:3px;font-size:11px;background:#333;margin-right:2px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center;z-index:20;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.overlay>.panel{max-width:620px;width:100%;max-height:90vh;overflow:auto}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--gold);color:#1a1408;padding:6px 12px;border-radius:4px;z-index:30;font-weight:600}
+.sk{display:flex;justify-content:space-between;gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid var(--line);font-size:13px}
+.sk.lock{opacity:.45}
+</style>
+
+<div class="wrap">
+  <div class="bar" id="topbar"></div>
+  <div id="screen"></div>
+</div>
+<div id="ov"></div>
+
+<script>
+window.GDD = {"meta":{"title":"Himmaparn Paradise","version":"2.0","generated":"2026-10-19"},"constants":{"SEC_PER_HOUR":16,"DAY_DEADLINE":31,"MAX_HUNGER":100,"HUNGER_PER_STEP":1,"STARVE_HP_PCT":5,"ENCOUNTER_STEPS":[10,20],"NIGHT_ENCOUNTER_MULT":0.7,"SCAVENGE_CHANCE":0.22,"FIGHT_HOURS":0.5,"PARTY_SIZE":3,"ROSTER_MAX":10,"LEVEL_CAP":99,"SP_START":3,"SP_PER_LEVEL":1,"SKILL_RANK_MAX":10,"ULT_RANK_MAX":3,"MP_RANK_GROWTH":0.12,"RUN_BASE":0.25,"CRIT_BASE":0.05,"EVASION_BASE":0.05,"EVASION_CAP":0.75,"ELEMENT_MOD":{"W":1.5,"N":1.0,"R":0.5,"X":0.0}},"stats":["HP","MP","STR","VIT","AGI","TEC","LUK"],"classes":[{"key":"warrior","th":"นักรบ","en":"Warrior","role":"ทหารดาบดั้งแนวหน้า (Tank / Protector)","weapon":"ดาบ + ดั้ง (โล่)","armor":"เกราะหนัก (เสื้อยันต์ หนังหุ้มโลหะ)","main":"HP, VIT, STR","base":{"HP":150,"MP":20,"STR":18,"VIT":16,"AGI":8,"TEC":4,"LUK":5},"growth":{"HP":24.29,"MP":2.0,"STR":0.43,"VIT":0.43,"AGI":0.14,"TEC":0.1,"LUK":0.15},"lv99":{"HP":2530,"MP":216,"STR":60,"VIT":58,"AGI":22,"TEC":14,"LUK":20},"weaponMult":{"atk":1.0,"spell":0.0},"armorMult":1.0,"desc":"นักรบคือทหารดาบดั้งแบบกองทัพกรุงศรีอยุธยา ถือดาบและดั้ง (โล่) สมดุลระหว่างการโจมตีและการป้องกัน หน้าที่หลักคือท้าศัตรูให้มาตีตัวเองและรับดาเมจแทนเพื่อนที่ตัวบาง และเป็นอาชีพเดียวนอกจากจอมขมังเวทย์ที่ตีธาตุได้ (ผ่านดาบลงยันต์)","skills":[{"name":"ไม้จ้วงฟัน","en":"Lunging Cut","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[4,4,5,5,6,6,7,7,8,8],"prereq":"-","desc":"ไม้ฟันจ้วงเต็มแรงแบบกระบี่กระบอง สกิลโจมตีหลักของนักรบ","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"120%"},{"Damage Multiplier":"131%"},{"Damage Multiplier":"142%"},{"Damage Multiplier":"153%"},{"Damage Multiplier":"164%"},{"Damage Multiplier":"176%"},{"Damage Multiplier":"187%"},{"Damage Multiplier":"198%"},{"Damage Multiplier":"209%"},{"Damage Multiplier":"220%"}],"formula":"Damage = Physical Base × Multiplier × Element × 100 / (100 + DEF)","note":"สกิลพื้นฐานที่ทุกบิลด์ควรมี MP ต่ำเพื่อให้ใช้ได้ทุกไฟต์"},{"name":"ตั้งดั้งพิทักษ์","en":"Shield Stance","tier":1,"kind":"Active","target":"ตัวเอง","mp":[3,3,4,4,4,5,5,6,6,6],"prereq":"-","desc":"ยกดั้งตั้งรับ เพิ่ม DEF ของตัวเองชั่วคราว","columns":["DEF Bonus","Duration"],"ranks":[{"DEF Bonus":"+15%","Duration":"2 เทิร์น"},{"DEF Bonus":"+20%","Duration":"2 เทิร์น"},{"DEF Bonus":"+25%","Duration":"2 เทิร์น"},{"DEF Bonus":"+30%","Duration":"2 เทิร์น"},{"DEF Bonus":"+35%","Duration":"2 เทิร์น"},{"DEF Bonus":"+40%","Duration":"3 เทิร์น"},{"DEF Bonus":"+45%","Duration":"3 เทิร์น"},{"DEF Bonus":"+50%","Duration":"3 เทิร์น"},{"DEF Bonus":"+55%","Duration":"3 เทิร์น"},{"DEF Bonus":"+60%","Duration":"3 เทิร์น"}],"formula":"DEF ระหว่างผล = DEF × (1 + DEF Bonus)","note":"ใช้คู่กับท้าทัพ: ดึงศัตรูมาแล้วรับด้วย DEF ที่สูงขึ้น"},{"name":"ท้าทัพ","en":"Challenge","tier":1,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[3,3,4,4,4,5,5,6,6,6],"prereq":"-","desc":"ร้องท้ารบกลางสมรภูมิ บังคับให้ศัตรูทุกตัวโจมตีนักรบ","columns":["Success Chance","Duration"],"ranks":[{"Success Chance":"55%","Duration":"2 เทิร์น"},{"Success Chance":"60%","Duration":"2 เทิร์น"},{"Success Chance":"65%","Duration":"2 เทิร์น"},{"Success Chance":"70%","Duration":"2 เทิร์น"},{"Success Chance":"75%","Duration":"2 เทิร์น"},{"Success Chance":"80%","Duration":"2 เทิร์น"},{"Success Chance":"85%","Duration":"2 เทิร์น"},{"Success Chance":"90%","Duration":"2 เทิร์น"},{"Success Chance":"95%","Duration":"2 เทิร์น"},{"Success Chance":"100%","Duration":"2 เทิร์น"}],"formula":"ทอยแยกต่อศัตรู 1 ตัว · บอส: โอกาส × 0.5","note":"สกิลที่ทำให้นักรบเป็นนักรบ ปกป้องหมอและจอมขมังเวทย์ บอสติดยากกว่าเพื่อให้ไฟต์บอสยังต้องวางแผนฮีล"},{"name":"ชำนาญเพลงดาบ","en":"Blade Mastery","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ฝึกเพลงดาบจนชำนาญ เพิ่ม ATK เมื่อถือดาบ","columns":["ATK Bonus"],"ranks":[{"ATK Bonus":"+2%"},{"ATK Bonus":"+4%"},{"ATK Bonus":"+6%"},{"ATK Bonus":"+8%"},{"ATK Bonus":"+10%"},{"ATK Bonus":"+12%"},{"ATK Bonus":"+14%"},{"ATK Bonus":"+16%"},{"ATK Bonus":"+18%"},{"ATK Bonus":"+20%"}],"formula":"Weapon ATK × (1 + ATK Bonus)","note":"พาสซีฟเพิ่มดาเมจคงที่"},{"name":"กายคงกระพัน","en":"Invulnerable Body","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"วิชาคงกระพันชาตรี เพิ่ม Max HP (Stat Boost แบบ Etrian Odyssey)","columns":["Max HP Bonus"],"ranks":[{"Max HP Bonus":"+3%"},{"Max HP Bonus":"+6%"},{"Max HP Bonus":"+9%"},{"Max HP Bonus":"+12%"},{"Max HP Bonus":"+15%"},{"Max HP Bonus":"+18%"},{"Max HP Bonus":"+21%"},{"Max HP Bonus":"+24%"},{"Max HP Bonus":"+27%"},{"Max HP Bonus":"+30%"}],"formula":"Max HP × (1 + Bonus)","note":"สกิลเพิ่ม Stat แบบ HP Up ของ Etrian Odyssey ให้ผู้เล่นเลือกระหว่างความทนกับสกิลใช้งาน"},{"name":"ไม้ปัดกวาด","en":"Sweeping Cut","tier":2,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[8,9,10,11,12,13,14,15,16,17],"prereq":"ไม้จ้วงฟัน Rank 3","desc":"หมุนตัวปัดดาบกวาดศัตรูทุกตัว","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"60%"},{"Damage Multiplier":"67%"},{"Damage Multiplier":"73%"},{"Damage Multiplier":"80%"},{"Damage Multiplier":"87%"},{"Damage Multiplier":"93%"},{"Damage Multiplier":"100%"},{"Damage Multiplier":"107%"},{"Damage Multiplier":"113%"},{"Damage Multiplier":"120%"}],"formula":"Damage = Physical Base × Multiplier × Element × 100 / (100 + DEF) (ต่อตัว)","note":"ดาเมจต่อตัวต่ำ แต่ช่วยเคลียร์ศัตรูสาย Pack"},{"name":"ดั้งบังภัย","en":"Guardian Shield","tier":2,"kind":"Active","target":"เพื่อน 1 คน","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"ตั้งดั้งพิทักษ์ Rank 3","desc":"ยืนบังเพื่อน รับดาเมจส่วนหนึ่งแทน","columns":["Damage ที่รับแทน","Duration"],"ranks":[{"Damage ที่รับแทน":"20%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"26%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"31%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"37%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"42%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"48%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"53%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"59%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"64%","Duration":"1 เทิร์น"},{"Damage ที่รับแทน":"70%","Duration":"1 เทิร์น"}],"formula":"ดาเมจที่เพื่อนได้รับ × % → นักรบรับแทน (คำนวณ DEF ของนักรบใหม่)","note":"ต่างจากท้าทัพตรงที่ใช้กับท่าโจมตีกลุ่มได้"},{"name":"ดาบลงยันต์","en":"Talisman Blade","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"-","desc":"แปะยันต์ธาตุ ไฟ / น้ำ / ลม ที่คมดาบแล้วฟัน ดาเมจเป็นธาตุที่เลือก","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"110%"},{"Damage Multiplier":"118%"},{"Damage Multiplier":"126%"},{"Damage Multiplier":"133%"},{"Damage Multiplier":"141%"},{"Damage Multiplier":"149%"},{"Damage Multiplier":"157%"},{"Damage Multiplier":"164%"},{"Damage Multiplier":"172%"},{"Damage Multiplier":"180%"}],"formula":"Damage = Physical Base × Multiplier × Element(ที่เลือก) × 100 / (100 + DEF)","note":"ให้ปาร์ตี้ที่ไม่มีจอมขมังเวทย์ตีจุดอ่อนธาตุได้"},{"name":"โห่ร้องออกศึก","en":"Battle Cry","tier":3,"kind":"Active","target":"ปาร์ตี้","mp":[10,11,12,14,15,16,17,18,20,21],"prereq":"-","desc":"โห่ร้องปลุกขวัญแบบกองทัพออกศึก เพิ่ม ATK ทั้งปาร์ตี้","columns":["ATK Bonus","Duration"],"ranks":[{"ATK Bonus":"+8%","Duration":"3 เทิร์น"},{"ATK Bonus":"+10%","Duration":"3 เทิร์น"},{"ATK Bonus":"+13%","Duration":"3 เทิร์น"},{"ATK Bonus":"+15%","Duration":"3 เทิร์น"},{"ATK Bonus":"+18%","Duration":"3 เทิร์น"},{"ATK Bonus":"+20%","Duration":"3 เทิร์น"},{"ATK Bonus":"+23%","Duration":"3 เทิร์น"},{"ATK Bonus":"+25%","Duration":"3 เทิร์น"},{"ATK Bonus":"+28%","Duration":"3 เทิร์น"},{"ATK Bonus":"+30%","Duration":"3 เทิร์น"}],"formula":"Effective ATK = Weapon ATK × (1 + ATK Bonus ทุกแหล่ง) (Additive)","note":"บัฟปาร์ตี้ตัวเดียวของนักรบ"},{"name":"ไม้ปัดสวน","en":"Parry Riposte","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"ตั้งดั้งพิทักษ์ Rank 5","desc":"เมื่อกด Defense และโดนโจมตีกายภาพ มีโอกาสปัดแล้วฟันสวน","columns":["Proc Chance","Counter Damage"],"ranks":[{"Proc Chance":"15%","Counter Damage":"80%"},{"Proc Chance":"20%","Counter Damage":"80%"},{"Proc Chance":"25%","Counter Damage":"80%"},{"Proc Chance":"30%","Counter Damage":"80%"},{"Proc Chance":"35%","Counter Damage":"80%"},{"Proc Chance":"40%","Counter Damage":"80%"},{"Proc Chance":"45%","Counter Damage":"80%"},{"Proc Chance":"50%","Counter Damage":"80%"},{"Proc Chance":"55%","Counter Damage":"80%"},{"Proc Chance":"60%","Counter Damage":"80%"}],"formula":"Counter = Physical Base × 0.8 × 100 / (100 + DEF)","note":"ให้การกด Defense มีค่ามากกว่าแค่ลดดาเมจ"},{"name":"ใจทหารหาญ","en":"Valiant Heart","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"เมื่อโดนดาเมจถึงตาย มีโอกาสรอดด้วย HP 1","columns":["Proc Chance"],"ranks":[{"Proc Chance":"8%"},{"Proc Chance":"12%"},{"Proc Chance":"16%"},{"Proc Chance":"20%"},{"Proc Chance":"24%"},{"Proc Chance":"29%"},{"Proc Chance":"33%"},{"Proc Chance":"37%"},{"Proc Chance":"41%"},{"Proc Chance":"45%"}],"formula":"ทำงานได้ 1 ครั้งต่อการต่อสู้","note":"กันการตายจากคริติคอลที่โชคร้าย"},{"name":"กำแพงพระนคร","en":"Walls of Ayutthaya","tier":4,"kind":"Ultimate","target":"ปาร์ตี้","mp":[25,28,31],"prereq":"Lv40 + ตั้งดั้งพิทักษ์ Rank 10","desc":"ยืนเป็นกำแพงพระนครให้ทั้งปาร์ตี้ ลดดาเมจที่ทุกคนได้รับ แต่นักรบทำอะไรไม่ได้ในเทิร์นถัดไป","columns":["Party Damage Reduction","Duration"],"ranks":[{"Party Damage Reduction":"-30%","Duration":"2 เทิร์น"},{"Party Damage Reduction":"-40%","Duration":"2 เทิร์น"},{"Party Damage Reduction":"-50%","Duration":"2 เทิร์น"}],"formula":"Damage Received × (1 − DR%) · 1 ครั้งต่อการต่อสู้","note":"ใช้รับท่าแรงของบอสที่มีเทิร์นเตือน (Section 14)"}]},{"key":"boxer","th":"นักมวย","en":"Boxer","role":"นักมวยคาดเชือกกรุงเก่า (Combo DPS / Counter)","weapon":"ผ้าคาดเชือก / สนับมือ","armor":"เกราะเบา (ผ้าประเจียด เสื้อหนัง)","main":"STR, AGI, LUK","base":{"HP":130,"MP":25,"STR":16,"VIT":10,"AGI":14,"TEC":4,"LUK":8},"growth":{"HP":18.02,"MP":2.0,"STR":0.49,"VIT":0.2,"AGI":0.49,"TEC":0.08,"LUK":0.21},"lv99":{"HP":1896,"MP":221,"STR":64,"VIT":30,"AGI":62,"TEC":12,"LUK":29},"weaponMult":{"atk":0.9,"spell":0.0},"armorMult":0.7,"desc":"นักมวยใช้แม่ไม้มวยไทยแบบคาดเชือกสมัยกรุงศรีอยุธยา ไม่ถืออาวุธ สวมผ้าคาดเชือกหรือสนับมือ จุดเด่นคือระบบ \"จังหวะปี่กลอง\" ที่ยิ่งสู้นานยิ่งแรง ท่าสวนกลับที่ลงโทษศัตรูสายกายภาพ และเป็นอาชีพเดียวที่ยกเลิกท่าชาร์จของศัตรูได้","skills":[{"name":"สลับฟันปลา","en":"Sawtooth Jab","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[3,3,4,4,4,5,5,6,6,6],"prereq":"-","desc":"แม่ไม้สลับฟันปลา ต่อยหมัดชุดสองครั้งติด ได้จังหวะ +1","columns":["Damage ต่อครั้ง","จำนวนครั้ง"],"ranks":[{"Damage ต่อครั้ง":"60%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"64%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"69%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"73%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"78%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"82%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"87%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"91%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"96%","จำนวนครั้ง":"2"},{"Damage ต่อครั้ง":"100%","จำนวนครั้ง":"2"}],"formula":"Damage ต่อครั้ง = Physical Base × Multiplier × (1 + Rhythm Bonus) × 100 / (100 + DEF)","note":"สกิลสะสมจังหวะราคาถูก"},{"name":"ไหว้ครูร่ายรำ","en":"Wai Khru Dance","tier":1,"kind":"Active","target":"ตัวเอง","mp":[4,4,5,5,6,6,7,7,8,8],"prereq":"-","desc":"ร่ายรำไหว้ครูก่อนชก เพิ่ม AGI ตัวเองและได้จังหวะ +1","columns":["AGI Bonus","Duration"],"ranks":[{"AGI Bonus":"+8%","Duration":"3 เทิร์น"},{"AGI Bonus":"+11%","Duration":"3 เทิร์น"},{"AGI Bonus":"+14%","Duration":"3 เทิร์น"},{"AGI Bonus":"+17%","Duration":"3 เทิร์น"},{"AGI Bonus":"+20%","Duration":"3 เทิร์น"},{"AGI Bonus":"+23%","Duration":"3 เทิร์น"},{"AGI Bonus":"+26%","Duration":"3 เทิร์น"},{"AGI Bonus":"+29%","Duration":"3 เทิร์น"},{"AGI Bonus":"+32%","Duration":"3 เทิร์น"},{"AGI Bonus":"+35%","Duration":"3 เทิร์น"}],"formula":"AGI × (1 + AGI Bonus)","note":"ใช้เปิดไฟต์ AGI ที่สูงขึ้นทำให้ได้ลงมือก่อนและหลบได้มากขึ้น"},{"name":"หักงวงไอยรา","en":"Trunk-Breaking Elbow","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"แม่ไม้หักงวงไอยรา ศอกกระแทกจุดตาย ไม่สนใจ DEF บางส่วน ได้จังหวะ +1","columns":["Damage Multiplier","DEF Ignore"],"ranks":[{"Damage Multiplier":"130%","DEF Ignore":"8%"},{"Damage Multiplier":"140%","DEF Ignore":"11%"},{"Damage Multiplier":"150%","DEF Ignore":"14%"},{"Damage Multiplier":"160%","DEF Ignore":"17%"},{"Damage Multiplier":"170%","DEF Ignore":"20%"},{"Damage Multiplier":"180%","DEF Ignore":"23%"},{"Damage Multiplier":"190%","DEF Ignore":"26%"},{"Damage Multiplier":"200%","DEF Ignore":"29%"},{"Damage Multiplier":"210%","DEF Ignore":"32%"},{"Damage Multiplier":"220%","DEF Ignore":"35%"}],"formula":"Damage = Physical Base × Multiplier × (1 + Rhythm Bonus) × 100 / (100 + DEF × (1 − Ignore))","note":"ใช้กับศัตรูสาย Defensive"},{"name":"ย่างสามขุม","en":"Three-Step Footwork","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ฝีเท้าย่างสามขุมแบบมวยโบราณ เพิ่มอัตราหลบ","columns":["Evasion Bonus"],"ranks":[{"Evasion Bonus":"+2%"},{"Evasion Bonus":"+4%"},{"Evasion Bonus":"+6%"},{"Evasion Bonus":"+7%"},{"Evasion Bonus":"+9%"},{"Evasion Bonus":"+11%"},{"Evasion Bonus":"+13%"},{"Evasion Bonus":"+14%"},{"Evasion Bonus":"+16%"},{"Evasion Bonus":"+18%"}],"formula":"Evasion = 5% + AGI × 0.5% + Bonus − Enemy Accuracy (สูงสุด 75%)","note":"ให้นักมวยที่ใส่เกราะเบายืนแถวหน้าได้"},{"name":"กำลังช้างสาร","en":"Might of the Bull Elephant","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"บำรุงกำลังกาย เพิ่ม STR (Stat Boost แบบ Etrian Odyssey)","columns":["STR Bonus"],"ranks":[{"STR Bonus":"+2%"},{"STR Bonus":"+4%"},{"STR Bonus":"+6%"},{"STR Bonus":"+8%"},{"STR Bonus":"+10%"},{"STR Bonus":"+12%"},{"STR Bonus":"+14%"},{"STR Bonus":"+16%"},{"STR Bonus":"+18%"},{"STR Bonus":"+20%"}],"formula":"STR × (1 + Bonus)","note":"Stat Boost ของนักมวย"},{"name":"มอญยันหลัก","en":"Mon Pushes the Pillar","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"แม่ไม้มอญยันหลัก ถีบยันหยุดศัตรู มีโอกาสยกเลิกท่าที่ศัตรูกำลังชาร์จ ได้จังหวะ +1","columns":["Damage Multiplier","Cancel Charge Chance"],"ranks":[{"Damage Multiplier":"90%","Cancel Charge Chance":"45%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"51%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"56%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"62%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"67%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"73%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"78%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"84%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"89%"},{"Damage Multiplier":"90%","Cancel Charge Chance":"95%"}],"formula":"บอส: Cancel Chance × 0.5","note":"ตัวรับมือศัตรูสาย Charger โดยตรง ทำให้นักมวยมีบทบาทในไฟต์บอส"},{"name":"ปักษาแหวกรัง","en":"Bird Parts the Nest","tier":2,"kind":"Active","target":"ตัวเอง","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"ไหว้ครูร่ายรำ Rank 3","desc":"แม่ไม้ปักษาแหวกรัง ตั้งท่ารับ 1 เทิร์น เมื่อโดนโจมตีกายภาพ มีโอกาสปัดแล้วสวน","columns":["Parry Chance","Counter Damage"],"ranks":[{"Parry Chance":"35%","Counter Damage":"100%"},{"Parry Chance":"41%","Counter Damage":"111%"},{"Parry Chance":"46%","Counter Damage":"122%"},{"Parry Chance":"52%","Counter Damage":"133%"},{"Parry Chance":"57%","Counter Damage":"144%"},{"Parry Chance":"63%","Counter Damage":"156%"},{"Parry Chance":"68%","Counter Damage":"167%"},{"Parry Chance":"74%","Counter Damage":"178%"},{"Parry Chance":"79%","Counter Damage":"189%"},{"Parry Chance":"85%","Counter Damage":"200%"}],"formula":"ปัดสำเร็จ = ไม่โดนดาเมจ · Counter = Physical Base × Counter × (1 + Rhythm Bonus)","note":"ลงโทษศัตรูสาย Aggressive ที่ไล่ตีตัว HP ต่ำ"},{"name":"แม่ไม้ครูมวย","en":"Master's Secret","tier":2,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"วิชาลับของครูมวยกรุงเก่า เพิ่มโบนัสดาเมจต่อจังหวะ 1 แต้ม","columns":["Rhythm Bonus ต่อแต้ม"],"ranks":[{"Rhythm Bonus ต่อแต้ม":"7%"},{"Rhythm Bonus ต่อแต้ม":"8%"},{"Rhythm Bonus ต่อแต้ม":"8%"},{"Rhythm Bonus ต่อแต้ม":"9%"},{"Rhythm Bonus ต่อแต้ม":"9%"},{"Rhythm Bonus ต่อแต้ม":"10%"},{"Rhythm Bonus ต่อแต้ม":"10%"},{"Rhythm Bonus ต่อแต้ม":"11%"},{"Rhythm Bonus ต่อแต้ม":"11%"},{"Rhythm Bonus ต่อแต้ม":"12%"}],"formula":"Rhythm Bonus = จังหวะ × โบนัสต่อแต้ม (ค่าเริ่มต้น 6%)","note":"จังหวะเต็ม 5 แต้มที่ Rank 10 = +60%"},{"name":"จระเข้ฟาดหาง","en":"Crocodile Tail Lash","tier":3,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[9,10,11,12,13,14,15,17,18,19],"prereq":"สลับฟันปลา Rank 5","desc":"ลูกไม้จระเข้ฟาดหาง เตะหมุนตัวกวาดศัตรูทุกตัว ได้จังหวะ +1","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"70%"},{"Damage Multiplier":"77%"},{"Damage Multiplier":"83%"},{"Damage Multiplier":"90%"},{"Damage Multiplier":"97%"},{"Damage Multiplier":"103%"},{"Damage Multiplier":"110%"},{"Damage Multiplier":"117%"},{"Damage Multiplier":"123%"},{"Damage Multiplier":"130%"}],"formula":"Damage = Physical Base × Multiplier × (1 + Rhythm Bonus) × 100 / (100 + DEF)","note":"สกิลโจมตีกลุ่มตัวเดียวของนักมวย"},{"name":"ใจนายขนมต้ม","en":"Spirit of Nai Khanom Tom","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ใจสู้ของยอดมวยกรุงศรีฯ เมื่อโดนโจมตีมีโอกาสได้จังหวะ +1","columns":["Proc Chance"],"ranks":[{"Proc Chance":"15%"},{"Proc Chance":"21%"},{"Proc Chance":"26%"},{"Proc Chance":"32%"},{"Proc Chance":"37%"},{"Proc Chance":"43%"},{"Proc Chance":"48%"},{"Proc Chance":"54%"},{"Proc Chance":"59%"},{"Proc Chance":"65%"}],"formula":"ทอยทุกครั้งที่โดนดาเมจ (ไม่นับ Poison)","note":"ให้นักมวยสะสมจังหวะได้แม้ในเทิร์นที่ตั้งรับ"},{"name":"ยกเขาพระสุเมรุ","en":"Lifting Mount Meru","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[8,9,10,11,12,13,14,15,16,17],"prereq":"หักงวงไอยรา Rank 5","desc":"ลูกไม้ยกเขาพระสุเมรุ กระโดดเสยเข่าเต็มแรง มีโอกาสทำให้ศัตรู Stun","columns":["Damage Multiplier","Stun Chance"],"ranks":[{"Damage Multiplier":"150%","Stun Chance":"8%"},{"Damage Multiplier":"161%","Stun Chance":"11%"},{"Damage Multiplier":"172%","Stun Chance":"14%"},{"Damage Multiplier":"183%","Stun Chance":"17%"},{"Damage Multiplier":"194%","Stun Chance":"20%"},{"Damage Multiplier":"206%","Stun Chance":"23%"},{"Damage Multiplier":"217%","Stun Chance":"26%"},{"Damage Multiplier":"228%","Stun Chance":"29%"},{"Damage Multiplier":"239%","Stun Chance":"32%"},{"Damage Multiplier":"250%","Stun Chance":"35%"}],"formula":"Damage = Physical Base × Multiplier × (1 + Rhythm Bonus) × 100 / (100 + DEF)","note":"ดาเมจเดี่ยวสูงสุดก่อน Ultimate"},{"name":"หักคอเอราวัณ","en":"Breaking Erawan's Neck","tier":4,"kind":"Ultimate","target":"ศัตรู 1 ตัว","mp":[20,22,25],"prereq":"Lv40 + ยกเขาพระสุเมรุ Rank 5","desc":"ลูกไม้หักคอเอราวัณ ใช้จังหวะทั้งหมดปล่อยท่าปิด ถ้าจังหวะเต็ม 5 แต้ม Crit การันตี","columns":["Damage ต่อจังหวะ"],"ranks":[{"Damage ต่อจังหวะ":"+60%"},{"Damage ต่อจังหวะ":"+80%"},{"Damage ต่อจังหวะ":"+100%"}],"formula":"Damage = Physical Base × (1.0 + ค่าต่อจังหวะ × จังหวะ) × 100 / (100 + DEF) · จังหวะ = 0 หลังใช้","note":"Rank 3 + จังหวะ 5 = 600% ของ Physical Base"}]},{"key":"hunter","th":"พราน","en":"Hunter","role":"พรานไพรผู้ชำนาญป่า (Crit DPS / Survival Utility)","weapon":"ธนู / หน้าไม้","armor":"เกราะเบา","main":"AGI, LUK, STR","base":{"HP":110,"MP":25,"STR":12,"VIT":8,"AGI":16,"TEC":6,"LUK":10},"growth":{"HP":15.29,"MP":3.0,"STR":0.24,"VIT":0.2,"AGI":0.73,"TEC":0.14,"LUK":0.34},"lv99":{"HP":1608,"MP":319,"STR":36,"VIT":28,"AGI":88,"TEC":20,"LUK":43},"weaponMult":{"atk":0.95,"spell":0.0},"armorMult":0.7,"desc":"พรานไพรคือนักล่าที่รู้จักป่า ทำดาเมจด้วยคริติคอลและศรทะลวงเกราะ และมีพาสซีฟที่ช่วยเอาตัวรอดมากที่สุดในเกม ทั้งลด Hunger ตอนเดิน เพิ่มของดรอป และเก็บของจากจุดเก็บได้มากขึ้น","skills":[{"name":"เล็งศรจุดตาย","en":"Deathpoint Aim","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[4,4,5,5,6,6,7,7,8,8],"prereq":"-","desc":"เล็งนานกว่าปกติ ยิงเข้าจุดตาย เพิ่มโอกาสคริติคอล","columns":["Damage Multiplier","Crit Bonus"],"ranks":[{"Damage Multiplier":"110%","Crit Bonus":"+12%"},{"Damage Multiplier":"110%","Crit Bonus":"+17%"},{"Damage Multiplier":"110%","Crit Bonus":"+22%"},{"Damage Multiplier":"110%","Crit Bonus":"+26%"},{"Damage Multiplier":"110%","Crit Bonus":"+31%"},{"Damage Multiplier":"110%","Crit Bonus":"+36%"},{"Damage Multiplier":"110%","Crit Bonus":"+41%"},{"Damage Multiplier":"110%","Crit Bonus":"+45%"},{"Damage Multiplier":"110%","Crit Bonus":"+50%"},{"Damage Multiplier":"110%","Crit Bonus":"+55%"}],"formula":"Crit Chance = 5% + LUK × 0.2% + Crit Bonus","note":"สกิลหลักของพรานสายคริ"},{"name":"วิชาพรานไพร","en":"Woodsman's Lore","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"รู้จักป่า เพิ่มโอกาสดรอป และ Rank 5 ขึ้นไปเก็บ Gathering Point ได้เพิ่ม 1 ครั้งต่อวัน (Rank 10 เพิ่ม 2 ครั้ง)","columns":["Drop Rate Bonus","Gathering"],"ranks":[{"Drop Rate Bonus":"+5%","Gathering":"-"},{"Drop Rate Bonus":"+10%","Gathering":"-"},{"Drop Rate Bonus":"+15%","Gathering":"-"},{"Drop Rate Bonus":"+20%","Gathering":"-"},{"Drop Rate Bonus":"+25%","Gathering":"+1"},{"Drop Rate Bonus":"+30%","Gathering":"+1"},{"Drop Rate Bonus":"+35%","Gathering":"+1"},{"Drop Rate Bonus":"+40%","Gathering":"+1"},{"Drop Rate Bonus":"+45%","Gathering":"+1"},{"Drop Rate Bonus":"+50%","Gathering":"+2"}],"formula":"Drop Chance × (1 + LUK/200 + Bonus)","note":"ทำให้พรานเป็นตัวหาวัตถุดิบหลัก"},{"name":"ย่องตามรอย","en":"Silent Tracking","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"เดินเงียบตามรอยสัตว์ ลด Hunger ที่ใช้ตอนเดิน","columns":["Hunger Reduction"],"ranks":[{"Hunger Reduction":"-5%"},{"Hunger Reduction":"-9%"},{"Hunger Reduction":"-13%"},{"Hunger Reduction":"-17%"},{"Hunger Reduction":"-21%"},{"Hunger Reduction":"-24%"},{"Hunger Reduction":"-28%"},{"Hunger Reduction":"-32%"},{"Hunger Reduction":"-36%"},{"Hunger Reduction":"-40%"}],"formula":"Hunger ต่อก้าว = 1 × (1 − Reduction รวม) · รวมสูงสุด 60%","note":"Rank 10 = เดินได้ 166 ก้าวต่อ Hunger 100"},{"name":"ฝีเท้าเสือ","en":"Tiger's Stride","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ฝีเท้าว่องไวดังเสือ เพิ่ม AGI (Stat Boost แบบ Etrian Odyssey)","columns":["AGI Bonus"],"ranks":[{"AGI Bonus":"+2%"},{"AGI Bonus":"+4%"},{"AGI Bonus":"+6%"},{"AGI Bonus":"+8%"},{"AGI Bonus":"+10%"},{"AGI Bonus":"+12%"},{"AGI Bonus":"+14%"},{"AGI Bonus":"+16%"},{"AGI Bonus":"+18%"},{"AGI Bonus":"+20%"}],"formula":"AGI × (1 + Bonus)","note":"Stat Boost ของพราน"},{"name":"ศรทะลวงเกราะ","en":"Armor-Piercing Arrow","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"เล็งศรจุดตาย Rank 3","desc":"ยิงศรหัวเหล็กทะลวงเกราะ ไม่สนใจ DEF บางส่วน","columns":["Damage Multiplier","DEF Ignore"],"ranks":[{"Damage Multiplier":"120%","DEF Ignore":"10%"},{"Damage Multiplier":"120%","DEF Ignore":"15%"},{"Damage Multiplier":"120%","DEF Ignore":"20%"},{"Damage Multiplier":"120%","DEF Ignore":"25%"},{"Damage Multiplier":"120%","DEF Ignore":"30%"},{"Damage Multiplier":"120%","DEF Ignore":"35%"},{"Damage Multiplier":"120%","DEF Ignore":"40%"},{"Damage Multiplier":"120%","DEF Ignore":"45%"},{"Damage Multiplier":"120%","DEF Ignore":"50%"},{"Damage Multiplier":"120%","DEF Ignore":"55%"}],"formula":"Damage = Physical Base × 1.2 × 100 / (100 + DEF × (1 − Ignore))","note":"ใช้กับศัตรู Defensive และสัตว์ชั้นสูง"},{"name":"ศรฝนแสนห่า","en":"Rain of a Hundred Thousand","tier":2,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[9,10,11,12,13,14,15,17,18,19],"prereq":"-","desc":"ยิงศรขึ้นฟ้าให้ตกลงมาดังฝนแสนห่าใส่ศัตรูทุกตัว","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"50%"},{"Damage Multiplier":"56%"},{"Damage Multiplier":"62%"},{"Damage Multiplier":"68%"},{"Damage Multiplier":"74%"},{"Damage Multiplier":"81%"},{"Damage Multiplier":"87%"},{"Damage Multiplier":"93%"},{"Damage Multiplier":"99%"},{"Damage Multiplier":"105%"}],"formula":"Damage = Physical Base × Multiplier × 100 / (100 + DEF) (ต่อตัว)","note":"ตัวเคลียร์ฝูง ชื่อมาจากปืนใหญ่ \"ฝนแสนห่า\" สมัยอยุธยา"},{"name":"บ่วงบาศคล้องบาท","en":"Lasso Snare","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"เหวี่ยงบ่วงบาศแบบหมอช้างคล้องขาศัตรู มีโอกาสติด Bind","columns":["Damage Multiplier","Bind Chance"],"ranks":[{"Damage Multiplier":"80%","Bind Chance":"20%"},{"Damage Multiplier":"80%","Bind Chance":"26%"},{"Damage Multiplier":"80%","Bind Chance":"31%"},{"Damage Multiplier":"80%","Bind Chance":"37%"},{"Damage Multiplier":"80%","Bind Chance":"42%"},{"Damage Multiplier":"80%","Bind Chance":"48%"},{"Damage Multiplier":"80%","Bind Chance":"53%"},{"Damage Multiplier":"80%","Bind Chance":"59%"},{"Damage Multiplier":"80%","Bind Chance":"64%"},{"Damage Multiplier":"80%","Bind Chance":"70%"}],"formula":"Status Chance (Section 5.6)","note":"Bind ทำให้ศัตรูใช้ท่ากายภาพไม่ได้ เข้าคู่กับสัญชาตญาณนักล่าของสัตว์อสูร"},{"name":"ศรอาบยาพิษ","en":"Venom-Soaked Arrow","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"ยิงศรอาบยางน่องพิษ มีโอกาสติด Poison","columns":["Damage Multiplier","Poison Chance"],"ranks":[{"Damage Multiplier":"90%","Poison Chance":"25%"},{"Damage Multiplier":"90%","Poison Chance":"31%"},{"Damage Multiplier":"90%","Poison Chance":"36%"},{"Damage Multiplier":"90%","Poison Chance":"42%"},{"Damage Multiplier":"90%","Poison Chance":"47%"},{"Damage Multiplier":"90%","Poison Chance":"53%"},{"Damage Multiplier":"90%","Poison Chance":"58%"},{"Damage Multiplier":"90%","Poison Chance":"64%"},{"Damage Multiplier":"90%","Poison Chance":"69%"},{"Damage Multiplier":"90%","Poison Chance":"75%"}],"formula":"Poison: 10% Max HP ต่อเทิร์น (บอส: Section 5.6)","note":"ดาเมจต่อเนื่องสำหรับศัตรู HP สูง"},{"name":"หูไวตาไวพราน","en":"Hunter's Instinct","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"รู้ตัวก่อนศัตรู เพิ่มโอกาสเปิดไฟต์ก่อน (Preemptive) ลดโอกาสโดนซุ่มโจมตี","columns":["Preemptive Bonus","Ambush Reduction"],"ranks":[{"Preemptive Bonus":"+5%","Ambush Reduction":"-5%"},{"Preemptive Bonus":"+9%","Ambush Reduction":"-9%"},{"Preemptive Bonus":"+13%","Ambush Reduction":"-13%"},{"Preemptive Bonus":"+17%","Ambush Reduction":"-17%"},{"Preemptive Bonus":"+21%","Ambush Reduction":"-21%"},{"Preemptive Bonus":"+24%","Ambush Reduction":"-24%"},{"Preemptive Bonus":"+28%","Ambush Reduction":"-28%"},{"Preemptive Bonus":"+32%","Ambush Reduction":"-32%"},{"Preemptive Bonus":"+36%","Ambush Reduction":"-36%"},{"Preemptive Bonus":"+40%","Ambush Reduction":"-40%"}],"formula":"Preemptive = ปาร์ตี้เล่นก่อน 1 เทิร์น · Ambush = ศัตรูเล่นก่อน","note":"ทรงพลังใน Chapter 3 (หญ้าสูง)"},{"name":"ตาเหยี่ยว","en":"Hawk Eye","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"สายตาคมดังเหยี่ยว เพิ่ม Accuracy ทั้งปาร์ตี้","columns":["Party Accuracy"],"ranks":[{"Party Accuracy":"+3%"},{"Party Accuracy":"+5%"},{"Party Accuracy":"+8%"},{"Party Accuracy":"+10%"},{"Party Accuracy":"+13%"},{"Party Accuracy":"+15%"},{"Party Accuracy":"+18%"},{"Party Accuracy":"+20%"},{"Party Accuracy":"+23%"},{"Party Accuracy":"+25%"}],"formula":"Hit Chance = 100% − Enemy Evasion + Accuracy Bonus","note":"รับมือ Blind และศัตรูหลบสูงใน Chapter 6"},{"name":"ศรตรึงบาท","en":"Pinning Arrow","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[7,8,9,10,10,11,12,13,14,15],"prereq":"บ่วงบาศคล้องบาท Rank 3","desc":"ยิงศรปักขา ลด AGI ของศัตรู","columns":["Damage Multiplier","AGI Down","Duration"],"ranks":[{"Damage Multiplier":"100%","AGI Down":"-10%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-14%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-18%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-22%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-26%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-29%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-33%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-37%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-41%","Duration":"3 เทิร์น"},{"Damage Multiplier":"100%","AGI Down":"-45%","Duration":"3 เทิร์น"}],"formula":"AGI ที่ลดทำให้ศัตรูลงมือช้าลงและหลบได้น้อยลง","note":"ใช้กับศัตรูที่ตีก่อนเสมอ"},{"name":"ศรพรานบุญ","en":"Arrow of Pran Boon","tier":4,"kind":"Ultimate","target":"ศัตรู 1 ตัว","mp":[22,25,27],"prereq":"Lv40 + เล็งศรจุดตาย Rank 10","desc":"ศรของพรานบุญผู้คล้องนางกินรีได้ Crit การันตี ถ้าปิดจ๊อบได้ ได้ดรอปเพิ่ม 1 ชิ้น","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"300%"},{"Damage Multiplier":"400%"},{"Damage Multiplier":"500%"}],"formula":"Damage = Physical Base × Multiplier × Crit Damage × 100 / (100 + DEF)","note":"ใช้ปิดสัตว์ชั้นสูงเพื่อเอาวัตถุดิบเพิ่ม พรานบุญเป็นพรานในตำนานที่คล้องนางมโนห์ราแห่งป่าหิมพานต์"}]},{"key":"medic","th":"หมอ","en":"Medic","role":"หมอยาแผนโบราณ (Healer / Support)","weapon":"ไม้เท้า / ครกยา","armor":"ชุดผ้า","main":"TEC, MP, HP","base":{"HP":90,"MP":50,"STR":5,"VIT":8,"AGI":10,"TEC":18,"LUK":8},"growth":{"HP":12.68,"MP":7.12,"STR":0.15,"VIT":0.28,"AGI":0.2,"TEC":0.78,"LUK":0.22},"lv99":{"HP":1333,"MP":748,"STR":20,"VIT":35,"AGI":30,"TEC":94,"LUK":30},"weaponMult":{"atk":0.4,"spell":0.8},"armorMult":0.45,"desc":"หมอยาแผนโบราณผู้รู้ตำราพระโอสถ ฮีล เรียกขวัญ (ชุบชีวิต) ถอนพิษ และปรุงยาที่ค่าย พลังโจมตีและป้องกันต่ำที่สุด แต่ทำให้ปาร์ตี้รอดในทุกสถานการณ์","skills":[{"name":"ป้อนยาหอม","en":"Fragrant Remedy","tier":1,"kind":"Active","target":"เพื่อน 1 คน","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"ป้อนยาหอมสมุนไพร ฟื้น HP ตามสัดส่วน Max HP","columns":["Heal (% Max HP)"],"ranks":[{"Heal (% Max HP)":"25%"},{"Heal (% Max HP)":"31%"},{"Heal (% Max HP)":"36%"},{"Heal (% Max HP)":"42%"},{"Heal (% Max HP)":"47%"},{"Heal (% Max HP)":"53%"},{"Heal (% Max HP)":"58%"},{"Heal (% Max HP)":"64%"},{"Heal (% Max HP)":"69%"},{"Heal (% Max HP)":"75%"}],"formula":"Heal = Max HP เป้าหมาย × % × (1 + TEC/200)","note":"ฮีลเป็น % Max HP ใช้ได้ดีกับทุกอาชีพ และ TEC ของหมอยังมีผล"},{"name":"ถอนพิษว่านยา","en":"Herbal Antidote","tier":1,"kind":"Active","target":"เพื่อน 1 คน","mp":[4,4,5,5,6,6,7,7,8,8],"prereq":"-","desc":"ใช้ว่านยาถอนพิษ ลบสถานะผิดปกติ","columns":["จำนวนสถานะที่ลบ"],"ranks":[{"จำนวนสถานะที่ลบ":"1"},{"จำนวนสถานะที่ลบ":"1"},{"จำนวนสถานะที่ลบ":"1"},{"จำนวนสถานะที่ลบ":"2"},{"จำนวนสถานะที่ลบ":"2"},{"จำนวนสถานะที่ลบ":"2"},{"จำนวนสถานะที่ลบ":"2"},{"จำนวนสถานะที่ลบ":"3"},{"จำนวนสถานะที่ลบ":"3"},{"จำนวนสถานะที่ลบ":"3"}],"formula":"ลบตามลำดับ Priority (Section 5.6)","note":"ตัวแก้ศัตรูสาย Caster"},{"name":"ตำราพระโอสถพระนารายณ์","en":"Royal Pharmacopoeia","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ความรู้จากตำราพระโอสถสมัยสมเด็จพระนารายณ์ ยาที่ปรุงแรงขึ้น และปลดล็อกสูตรยาที่เรือนหมอหลวง (จันทร์)","columns":["Potion Power","สูตรที่ปลดล็อก"],"ranks":[{"Potion Power":"+5%","สูตรที่ปลดล็อก":"ยาหอม"},{"Potion Power":"+10%","สูตรที่ปลดล็อก":"ยาหอม"},{"Potion Power":"+15%","สูตรที่ปลดล็อก":"ยาหอม"},{"Potion Power":"+20%","สูตรที่ปลดล็อก":"+ ยาเขียว"},{"Potion Power":"+25%","สูตรที่ปลดล็อก":"+ ยาเขียว"},{"Potion Power":"+30%","สูตรที่ปลดล็อก":"+ ยาเขียว"},{"Potion Power":"+35%","สูตรที่ปลดล็อก":"+ ยาดมส้มโอมือ"},{"Potion Power":"+40%","สูตรที่ปลดล็อก":"+ ยาดมส้มโอมือ"},{"Potion Power":"+45%","สูตรที่ปลดล็อก":"+ ยาดมส้มโอมือ"},{"Potion Power":"+50%","สูตรที่ปลดล็อก":"+ ยาทิพย์"}],"formula":"ผลของยา = Base × (1 + Potion Power) · มีผลเมื่อมีหมอในสังกัด (ไม่ต้องอยู่ในปาร์ตี้)","note":"ทำให้หมอมีค่าแม้วันที่ไม่ได้พาเข้าป่า"},{"name":"ปราณบำรุง","en":"Vital Breath","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"บำรุงปราณ เพิ่ม Max MP (Stat Boost แบบ Etrian Odyssey)","columns":["Max MP Bonus"],"ranks":[{"Max MP Bonus":"+3%"},{"Max MP Bonus":"+6%"},{"Max MP Bonus":"+9%"},{"Max MP Bonus":"+12%"},{"Max MP Bonus":"+15%"},{"Max MP Bonus":"+18%"},{"Max MP Bonus":"+21%"},{"Max MP Bonus":"+24%"},{"Max MP Bonus":"+27%"},{"Max MP Bonus":"+30%"}],"formula":"Max MP × (1 + Bonus)","note":"Stat Boost ของหมอ"},{"name":"พรมน้ำมนต์","en":"Sprinkling Holy Water","tier":2,"kind":"Active","target":"ปาร์ตี้","mp":[12,13,15,16,18,19,21,22,24,25],"prereq":"ป้อนยาหอม Rank 3","desc":"พรมน้ำมนต์ฟื้น HP ทั้งปาร์ตี้","columns":["Heal (% Max HP)"],"ranks":[{"Heal (% Max HP)":"12%"},{"Heal (% Max HP)":"15%"},{"Heal (% Max HP)":"18%"},{"Heal (% Max HP)":"21%"},{"Heal (% Max HP)":"24%"},{"Heal (% Max HP)":"28%"},{"Heal (% Max HP)":"31%"},{"Heal (% Max HP)":"34%"},{"Heal (% Max HP)":"37%"},{"Heal (% Max HP)":"40%"}],"formula":"Heal = Max HP ของแต่ละคน × % × (1 + TEC/200)","note":"ฮีลกลุ่มสำหรับท่าโจมตีทั้งปาร์ตี้"},{"name":"เรียกขวัญ","en":"Calling Back the Soul","tier":2,"kind":"Active","target":"เพื่อนที่ตาย 1 คน","mp":[18,20,22,24,27,29,31,33,35,37],"prereq":"-","desc":"ทำพิธีเรียกขวัญ ชุบชีวิตเพื่อนที่ตายในการต่อสู้","columns":["HP หลังชุบ"],"ranks":[{"HP หลังชุบ":"25%"},{"HP หลังชุบ":"29%"},{"HP หลังชุบ":"34%"},{"HP หลังชุบ":"38%"},{"HP หลังชุบ":"43%"},{"HP หลังชุบ":"47%"},{"HP หลังชุบ":"52%"},{"HP หลังชุบ":"56%"},{"HP หลังชุบ":"61%"},{"HP หลังชุบ":"65%"}],"formula":"ใช้นอกการต่อสู้ได้","note":"MP แพงเพื่อให้การตายยังเป็นเรื่องใหญ่"},{"name":"ผูกขวัญ","en":"Binding Blessing","tier":2,"kind":"Active","target":"ปาร์ตี้","mp":[10,11,12,14,15,16,17,18,20,21],"prereq":"-","desc":"ผูกด้ายขวัญที่ข้อมือ เพิ่ม DEF ทั้งปาร์ตี้","columns":["DEF Bonus","Duration"],"ranks":[{"DEF Bonus":"+8%","Duration":"2 เทิร์น"},{"DEF Bonus":"+11%","Duration":"2 เทิร์น"},{"DEF Bonus":"+14%","Duration":"2 เทิร์น"},{"DEF Bonus":"+17%","Duration":"2 เทิร์น"},{"DEF Bonus":"+20%","Duration":"2 เทิร์น"},{"DEF Bonus":"+23%","Duration":"2 เทิร์น"},{"DEF Bonus":"+26%","Duration":"2 เทิร์น"},{"DEF Bonus":"+29%","Duration":"2 เทิร์น"},{"DEF Bonus":"+32%","Duration":"2 เทิร์น"},{"DEF Bonus":"+35%","Duration":"2 เทิร์น"}],"formula":"DEF × (1 + Bonus) (Additive กับตั้งดั้งพิทักษ์)","note":"ใช้ก่อนท่าแรงที่บอสเตือน"},{"name":"ยันต์กันคุณ","en":"Ward Talisman","tier":3,"kind":"Active","target":"เพื่อน 1 คน","mp":[8,9,10,11,12,13,14,15,16,17],"prereq":"ถอนพิษว่านยา Rank 3","desc":"แปะยันต์กันคุณไสย กันสถานะผิดปกติล่วงหน้า","columns":["จำนวนครั้งที่กัน"],"ranks":[{"จำนวนครั้งที่กัน":"1"},{"จำนวนครั้งที่กัน":"1"},{"จำนวนครั้งที่กัน":"1"},{"จำนวนครั้งที่กัน":"2"},{"จำนวนครั้งที่กัน":"2"},{"จำนวนครั้งที่กัน":"2"},{"จำนวนครั้งที่กัน":"2"},{"จำนวนครั้งที่กัน":"3"},{"จำนวนครั้งที่กัน":"3"},{"จำนวนครั้งที่กัน":"3"}],"formula":"กันสถานะใดก็ได้ หมดเมื่อจบการต่อสู้","note":"ป้องกันก่อนโดน ดีกว่าแก้หลังโดน"},{"name":"สมาธิภาวนา","en":"Meditation","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ภาวนาระหว่างรบ ฟื้น MP ตัวเองทุกเทิร์น","columns":["MP Regen ต่อเทิร์น"],"ranks":[{"MP Regen ต่อเทิร์น":"+1"},{"MP Regen ต่อเทิร์น":"+2"},{"MP Regen ต่อเทิร์น":"+3"},{"MP Regen ต่อเทิร์น":"+5"},{"MP Regen ต่อเทิร์น":"+6"},{"MP Regen ต่อเทิร์น":"+7"},{"MP Regen ต่อเทิร์น":"+8"},{"MP Regen ต่อเทิร์น":"+10"},{"MP Regen ต่อเทิร์น":"+11"},{"MP Regen ต่อเทิร์น":"+12"}],"formula":"ฟื้นต้นเทิร์นของผู้เล่น","note":"MP ของหมอคือเวลาที่ปาร์ตี้อยู่ในป่าได้"},{"name":"หมอเดินทัพ","en":"Army Physician","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ประสบการณ์หมอประจำทัพ หลังจบการต่อสู้ทุกครั้งฮีลทั้งปาร์ตี้","columns":["Heal (% Max HP)"],"ranks":[{"Heal (% Max HP)":"2%"},{"Heal (% Max HP)":"4%"},{"Heal (% Max HP)":"6%"},{"Heal (% Max HP)":"7%"},{"Heal (% Max HP)":"9%"},{"Heal (% Max HP)":"11%"},{"Heal (% Max HP)":"13%"},{"Heal (% Max HP)":"14%"},{"Heal (% Max HP)":"16%"},{"Heal (% Max HP)":"18%"}],"formula":"ทำงานหลังชนะหรือหนีสำเร็จ (ไม่ทำงานถ้าหมอตาย)","note":"ลดการกลับค่ายเพื่อรักษา"},{"name":"ยาต้มบำรุงธาตุ","en":"Elemental Tonic","tier":3,"kind":"Active","target":"เพื่อน 1 คน","mp":[7,8,9,10,10,11,12,13,14,15],"prereq":"-","desc":"ยาต้มบำรุงธาตุทั้งสี่ ฟื้น HP ทุกต้นเทิร์น","columns":["Heal ต่อเทิร์น","Duration"],"ranks":[{"Heal ต่อเทิร์น":"6%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"8%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"10%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"11%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"13%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"15%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"17%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"18%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"20%","Duration":"3 เทิร์น"},{"Heal ต่อเทิร์น":"22%","Duration":"3 เทิร์น"}],"formula":"Heal = Max HP × % × (1 + TEC/200)","note":"ใช้ล่วงหน้ากับนักรบที่กำลังรับดาเมจ"},{"name":"มหาพิกัดโอสถ","en":"Grand Formula","tier":4,"kind":"Ultimate","target":"ปาร์ตี้","mp":[40,45,50],"prereq":"Lv40 + พรมน้ำมนต์ Rank 10","desc":"ปรุงยามหาพิกัด ฮีลเต็มทุกคน และเรียกขวัญทุกคนที่ตาย","columns":["HP ของคนที่ถูกชุบ"],"ranks":[{"HP ของคนที่ถูกชุบ":"30%"},{"HP ของคนที่ถูกชุบ":"50%"},{"HP ของคนที่ถูกชุบ":"70%"}],"formula":"1 ครั้งต่อการต่อสู้","note":"ปุ่มกู้สถานการณ์สำหรับไฟต์บอส"}]},{"key":"sorcerer","th":"จอมขมังเวทย์","en":"Sorcerer","role":"ผู้ใช้ไสยเวทและคาถาอาคม (Elemental Nuker / Debuffer)","weapon":"ไม้เท้า / ตะกรุด","armor":"ชุดผ้าลงยันต์","main":"TEC, MP, LUK","base":{"HP":80,"MP":60,"STR":4,"VIT":6,"AGI":9,"TEC":20,"LUK":12},"growth":{"HP":10.86,"MP":8.47,"STR":0.11,"VIT":0.14,"AGI":0.19,"TEC":0.82,"LUK":0.28},"lv99":{"HP":1144,"MP":890,"STR":15,"VIT":20,"AGI":28,"TEC":100,"LUK":39},"weaponMult":{"atk":0.3,"spell":1.0},"armorMult":0.45,"desc":"จอมขมังเวทย์ผู้ร่ายคาถาอาคมธาตุ ไฟ น้ำ ลม และปล่อยคุณไสยใส่สถานะผิดปกติ ทุกการโจมตีด้วยสกิลเป็นดาเมจเวทย์ เป็นอาชีพที่ตีจุดอ่อนได้ดีที่สุด และเพ่งกสิณอ่านธาตุของศัตรูได้","skills":[{"name":"คาถาไฟกาฬ","en":"Kala Fire Incantation","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"-","desc":"เสกไฟกาฬเผาศัตรู ดาเมจธาตุไฟ","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"130%"},{"Damage Multiplier":"141%"},{"Damage Multiplier":"152%"},{"Damage Multiplier":"163%"},{"Damage Multiplier":"174%"},{"Damage Multiplier":"186%"},{"Damage Multiplier":"197%"},{"Damage Multiplier":"208%"},{"Damage Multiplier":"219%"},{"Damage Multiplier":"230%"}],"formula":"Damage = Magic Base × Multiplier × Element(ไฟ) × 100 / (100 + Magic DEF)","note":"คาถาธาตุหลัก 1 ใน 3"},{"name":"คาถาวารีพิฆาต","en":"Drowning Incantation","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"-","desc":"เสกน้ำวนกลืนศัตรู ดาเมจธาตุน้ำ","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"130%"},{"Damage Multiplier":"141%"},{"Damage Multiplier":"152%"},{"Damage Multiplier":"163%"},{"Damage Multiplier":"174%"},{"Damage Multiplier":"186%"},{"Damage Multiplier":"197%"},{"Damage Multiplier":"208%"},{"Damage Multiplier":"219%"},{"Damage Multiplier":"230%"}],"formula":"Damage = Magic Base × Multiplier × Element(น้ำ) × 100 / (100 + Magic DEF)","note":"คาถาธาตุหลัก 2 ใน 3"},{"name":"ตะกรุดโทน","en":"Single Takrut","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ตะกรุดโทนรวมพลังอาคม เพิ่มดาเมจเวทย์ทั้งหมด","columns":["Magic Damage Bonus"],"ranks":[{"Magic Damage Bonus":"+2%"},{"Magic Damage Bonus":"+4%"},{"Magic Damage Bonus":"+6%"},{"Magic Damage Bonus":"+8%"},{"Magic Damage Bonus":"+10%"},{"Magic Damage Bonus":"+12%"},{"Magic Damage Bonus":"+14%"},{"Magic Damage Bonus":"+16%"},{"Magic Damage Bonus":"+18%"},{"Magic Damage Bonus":"+20%"}],"formula":"Magic Base × (1 + Bonus)","note":"พาสซีฟดาเมจพื้นฐาน"},{"name":"วิชาอาคมแก่กล้า","en":"Mastery of Arcana","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"อาคมแก่กล้าขึ้น เพิ่ม TEC (Stat Boost แบบ Etrian Odyssey)","columns":["TEC Bonus"],"ranks":[{"TEC Bonus":"+2%"},{"TEC Bonus":"+4%"},{"TEC Bonus":"+6%"},{"TEC Bonus":"+8%"},{"TEC Bonus":"+10%"},{"TEC Bonus":"+12%"},{"TEC Bonus":"+14%"},{"TEC Bonus":"+16%"},{"TEC Bonus":"+18%"},{"TEC Bonus":"+20%"}],"formula":"TEC × (1 + Bonus)","note":"Stat Boost ของจอมขมังเวทย์"},{"name":"คาถาวาโยพัด","en":"Gale Incantation","tier":2,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[10,11,12,14,15,16,17,18,20,21],"prereq":"-","desc":"เรียกลมวาโยพัดใบมีดลม ดาเมจธาตุลมใส่ศัตรูทุกตัว","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"55%"},{"Damage Multiplier":"63%"},{"Damage Multiplier":"71%"},{"Damage Multiplier":"78%"},{"Damage Multiplier":"86%"},{"Damage Multiplier":"94%"},{"Damage Multiplier":"102%"},{"Damage Multiplier":"109%"},{"Damage Multiplier":"117%"},{"Damage Multiplier":"125%"}],"formula":"Damage = Magic Base × Multiplier × Element(ลม) × 100 / (100 + Magic DEF)","note":"ธาตุลมเป็นธาตุโจมตีกลุ่ม ทำให้การเลือกธาตุมีมิติเรื่องจำนวนศัตรูด้วย"},{"name":"เพ่งกสิณ","en":"Kasina Gaze","tier":2,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[3,3,4,4,4,5,5,6,6,6],"prereq":"-","desc":"เพ่งกสิณดูธาตุของศัตรู เปิดเผยจุดอ่อนธาตุของศัตรูทุกตัวและบันทึกลงสมุดสัตว์ เพิ่มดาเมจใส่จุดอ่อนตลอดการต่อสู้","columns":["Weakness Damage Bonus"],"ranks":[{"Weakness Damage Bonus":"+3%"},{"Weakness Damage Bonus":"+6%"},{"Weakness Damage Bonus":"+9%"},{"Weakness Damage Bonus":"+12%"},{"Weakness Damage Bonus":"+15%"},{"Weakness Damage Bonus":"+18%"},{"Weakness Damage Bonus":"+21%"},{"Weakness Damage Bonus":"+24%"},{"Weakness Damage Bonus":"+27%"},{"Weakness Damage Bonus":"+30%"}],"formula":"Weak Modifier = 1.5 + Bonus (ดาเมจจากทุกคนในปาร์ตี้)","note":"ตัวเชื่อมสมุดสัตว์กับการต่อสู้ จำเป็นมากใน Chapter 7 (ไกรสรจำแลง) กสิณคือการเพ่งธาตุ ดิน น้ำ ไฟ ลม ในการทำสมาธิ"},{"name":"มนต์สะกดวิญญาณ","en":"Soul-Binding Spell","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[7,8,9,10,10,11,12,13,14,15],"prereq":"-","desc":"ร่ายมนต์สะกดวิญญาณ มีโอกาสติด Paralyze","columns":["Paralyze Chance"],"ranks":[{"Paralyze Chance":"20%"},{"Paralyze Chance":"26%"},{"Paralyze Chance":"31%"},{"Paralyze Chance":"37%"},{"Paralyze Chance":"42%"},{"Paralyze Chance":"48%"},{"Paralyze Chance":"53%"},{"Paralyze Chance":"59%"},{"Paralyze Chance":"64%"},{"Paralyze Chance":"70%"}],"formula":"Status Chance (Section 5.6)","note":"ลดจำนวนครั้งที่ศัตรูได้ลงมือ"},{"name":"เป่ามนต์บังตา","en":"Veiling Breath","tier":3,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[8,9,10,11,12,13,14,15,16,17],"prereq":"-","desc":"เป่ามนต์บังตาศัตรู มีโอกาสติด Blind ทุกตัว","columns":["Blind Chance"],"ranks":[{"Blind Chance":"15%"},{"Blind Chance":"20%"},{"Blind Chance":"25%"},{"Blind Chance":"30%"},{"Blind Chance":"35%"},{"Blind Chance":"40%"},{"Blind Chance":"45%"},{"Blind Chance":"50%"},{"Blind Chance":"55%"},{"Blind Chance":"60%"}],"formula":"Blind: Accuracy −30%","note":"ลดดาเมจที่ปาร์ตี้ได้รับโดยรวม"},{"name":"ปล่อยคุณไสย","en":"Black Magic Curse","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"มนต์สะกดวิญญาณ Rank 3","desc":"ปล่อยคุณไสยเข้าตัวศัตรู มีโอกาสติด Poison ที่แรงกว่าปกติ","columns":["Poison Chance","Poison Damage"],"ranks":[{"Poison Chance":"25%","Poison Damage":"10%"},{"Poison Chance":"31%","Poison Damage":"11%"},{"Poison Chance":"36%","Poison Damage":"12%"},{"Poison Chance":"42%","Poison Damage":"13%"},{"Poison Chance":"47%","Poison Damage":"14%"},{"Poison Chance":"53%","Poison Damage":"16%"},{"Poison Chance":"58%","Poison Damage":"17%"},{"Poison Chance":"64%","Poison Damage":"18%"},{"Poison Chance":"69%","Poison Damage":"19%"},{"Poison Chance":"75%","Poison Damage":"20%"}],"formula":"Poison Damage = Max HP × % ต่อเทิร์น","note":"Poison ที่แรงที่สุดในเกม"},{"name":"ชักประคำ","en":"Rosary Chant","tier":3,"kind":"Active","target":"ตัวเอง","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"ตะกรุดโทน Rank 5","desc":"ชักประคำสวดต่อมนต์ คาถาถัดไปไม่เสีย MP","columns":["Cooldown"],"ranks":[{"Cooldown":"5 เทิร์น"},{"Cooldown":"5 เทิร์น"},{"Cooldown":"5 เทิร์น"},{"Cooldown":"4 เทิร์น"},{"Cooldown":"4 เทิร์น"},{"Cooldown":"4 เทิร์น"},{"Cooldown":"3 เทิร์น"},{"Cooldown":"3 เทิร์น"},{"Cooldown":"3 เทิร์น"},{"Cooldown":"2 เทิร์น"}],"formula":"ใช้กับ Ultimate ได้","note":"ประหยัด MP กับคาถาราคาแพง"},{"name":"สมาธิอาคม","en":"Arcane Focus","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"สมาธิสูง ลด MP ที่ใช้ร่ายทุกคาถา","columns":["MP Cost Reduction"],"ranks":[{"MP Cost Reduction":"-3%"},{"MP Cost Reduction":"-6%"},{"MP Cost Reduction":"-9%"},{"MP Cost Reduction":"-12%"},{"MP Cost Reduction":"-15%"},{"MP Cost Reduction":"-18%"},{"MP Cost Reduction":"-21%"},{"MP Cost Reduction":"-24%"},{"MP Cost Reduction":"-27%"},{"MP Cost Reduction":"-30%"}],"formula":"MP ที่ใช้ = MP × (1 − Reduction) ปัดขึ้น","note":"ยืดเวลาที่อยู่ในป่าได้"},{"name":"มหาเพลิงประลัยกัลป์","en":"Cataclysm of the Kalpa","tier":4,"kind":"Ultimate","target":"ศัตรูทั้งหมด","mp":[45,50,56],"prereq":"Lv40 + คาถาไฟกาฬ, คาถาวารีพิฆาต Rank 10","desc":"ไฟ น้ำ ลม ประลัยกัลป์พร้อมกัน ใช้ธาตุที่ศัตรูแต่ละตัวแพ้ที่สุดโดยอัตโนมัติ","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"150%"},{"Damage Multiplier":"200%"},{"Damage Multiplier":"250%"}],"formula":"Damage = Magic Base × Multiplier × Best Element × 100 / (100 + Magic DEF)","note":"ถ้ายังไม่เปิดจุดอ่อน ระบบใช้ธาตุที่ดีที่สุดอยู่ดี แต่ไม่บันทึกลงสมุดสัตว์"}]},{"key":"beast","th":"สัตว์อสูร","en":"Beast","role":"สัตว์หิมพานต์ที่ร่วมทาง (Bruiser / Raw Physical)","weapon":"กรงเล็บ เขี้ยว (สวมเครื่องประดับอสูรแทนอาวุธ)","armor":"เกราะอสูร","main":"STR, HP","base":{"HP":200,"MP":10,"STR":25,"VIT":14,"AGI":6,"TEC":2,"LUK":3},"growth":{"HP":31.71,"MP":1.0,"STR":0.78,"VIT":0.28,"AGI":0.12,"TEC":0.08,"LUK":0.12},"lv99":{"HP":3308,"MP":108,"STR":101,"VIT":41,"AGI":18,"TEC":10,"LUK":15},"weaponMult":{"atk":1.15,"spell":0.0},"armorMult":0.85,"desc":"สัตว์อสูรคือสัตว์หิมพานต์ที่ยอมร่วมเดินทางกับคณะ ปลดล็อกหลังผ่านเนื้อเรื่องช่วงหนึ่ง มีพลังกายภาพและ HP สูงที่สุดในเกม แต่ MP น้อยมาก แต่ละตัวมี Bloodline Passive ตามเผ่าพันธุ์","skills":[{"name":"ตะปบเล็บเพชร","en":"Diamond Claw","tier":1,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[4,4,5,5,6,6,7,7,8,8],"prereq":"-","desc":"ตะปบด้วยกรงเล็บแข็งดังเพชร","columns":["Damage Multiplier"],"ranks":[{"Damage Multiplier":"130%"},{"Damage Multiplier":"141%"},{"Damage Multiplier":"152%"},{"Damage Multiplier":"163%"},{"Damage Multiplier":"174%"},{"Damage Multiplier":"186%"},{"Damage Multiplier":"197%"},{"Damage Multiplier":"208%"},{"Damage Multiplier":"219%"},{"Damage Multiplier":"230%"}],"formula":"Damage = Physical Base × Multiplier × 100 / (100 + DEF)","note":"Physical Base ของสัตว์อสูรใช้ ATK ของเครื่องประดับอสูร"},{"name":"หนังเหนียวอสูร","en":"Demon Hide","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"หนังหนาตามธรรมชาติ เพิ่ม DEF","columns":["DEF Bonus"],"ranks":[{"DEF Bonus":"+5%"},{"DEF Bonus":"+9%"},{"DEF Bonus":"+14%"},{"DEF Bonus":"+18%"},{"DEF Bonus":"+23%"},{"DEF Bonus":"+27%"},{"DEF Bonus":"+32%"},{"DEF Bonus":"+36%"},{"DEF Bonus":"+41%"},{"DEF Bonus":"+45%"}],"formula":"DEF × (1 + Bonus)","note":"ให้สัตว์อสูรยืนรับดาเมจได้แม้ไม่มีโล่"},{"name":"บันลือสีหนาท","en":"Lion's Roar","tier":1,"kind":"Active","target":"ศัตรูทั้งหมด","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"-","desc":"บันลือเสียงคำรามดังราชสีห์ ลด ATK ศัตรูทุกตัว","columns":["ATK Down","Duration"],"ranks":[{"ATK Down":"-8%","Duration":"2 เทิร์น"},{"ATK Down":"-11%","Duration":"2 เทิร์น"},{"ATK Down":"-14%","Duration":"2 เทิร์น"},{"ATK Down":"-17%","Duration":"2 เทิร์น"},{"ATK Down":"-20%","Duration":"2 เทิร์น"},{"ATK Down":"-23%","Duration":"2 เทิร์น"},{"ATK Down":"-26%","Duration":"2 เทิร์น"},{"ATK Down":"-29%","Duration":"2 เทิร์น"},{"ATK Down":"-32%","Duration":"2 เทิร์น"},{"ATK Down":"-35%","Duration":"2 เทิร์น"}],"formula":"Enemy ATK × (1 − Down)","note":"ดีบัฟกลุ่มตัวเดียวของสัตว์อสูร"},{"name":"กายาอสูร","en":"Demon Physique","tier":1,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ร่างกายอสูร เพิ่ม Max HP (Stat Boost แบบ Etrian Odyssey)","columns":["Max HP Bonus"],"ranks":[{"Max HP Bonus":"+3%"},{"Max HP Bonus":"+6%"},{"Max HP Bonus":"+9%"},{"Max HP Bonus":"+12%"},{"Max HP Bonus":"+15%"},{"Max HP Bonus":"+18%"},{"Max HP Bonus":"+21%"},{"Max HP Bonus":"+24%"},{"Max HP Bonus":"+27%"},{"Max HP Bonus":"+30%"}],"formula":"Max HP × (1 + Bonus)","note":"Stat Boost ของสัตว์อสูร"},{"name":"กระหน่ำอสุรา","en":"Asura Onslaught","tier":2,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[8,9,10,11,12,13,14,15,16,17],"prereq":"ตะปบเล็บเพชร Rank 3","desc":"ขย้ำรัว 3 ครั้ง","columns":["Damage ต่อครั้ง","Hit Chance ต่อครั้ง"],"ranks":[{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"55%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"59%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"64%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"68%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"73%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"77%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"82%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"86%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"91%"},{"Damage ต่อครั้ง":"80%","Hit Chance ต่อครั้ง":"95%"}],"formula":"Damage ต่อครั้ง = Physical Base × 0.8 · ทอย Hit แยกทุกครั้ง","note":"ค่าเฉลี่ย Rank 10 = 228%"},{"name":"โทสะเดือดดาล","en":"Boiling Wrath","tier":2,"kind":"Active","target":"ตัวเอง","mp":[5,6,6,7,7,8,9,9,10,10],"prereq":"-","desc":"ปลุกโทสะ ATK เพิ่มตาม HP ที่หายไป","columns":["ATK Bonus สูงสุด","Duration"],"ranks":[{"ATK Bonus สูงสุด":"+15%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+21%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+26%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+32%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+37%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+43%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+48%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+54%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+59%","Duration":"3 เทิร์น"},{"ATK Bonus สูงสุด":"+65%","Duration":"3 เทิร์น"}],"formula":"ATK Bonus = ค่าสูงสุด × (1 − HP ปัจจุบัน / Max HP)","note":"ยิ่งเลือดน้อยยิ่งแรง ความเสี่ยงที่ผู้เล่นเลือกเอง"},{"name":"สัญชาตญาณนักล่า","en":"Predator's Instinct","tier":2,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"ล่าเหยื่อที่ขยับไม่ได้ เพิ่มดาเมจใส่ศัตรูที่ติด Bind / Paralyze / Stun","columns":["Damage Bonus"],"ranks":[{"Damage Bonus":"+5%"},{"Damage Bonus":"+9%"},{"Damage Bonus":"+14%"},{"Damage Bonus":"+18%"},{"Damage Bonus":"+23%"},{"Damage Bonus":"+27%"},{"Damage Bonus":"+32%"},{"Damage Bonus":"+36%"},{"Damage Bonus":"+41%"},{"Damage Bonus":"+45%"}],"formula":"Damage × (1 + Bonus)","note":"Synergy กับพราน (Bind) และจอมขมังเวทย์ (Paralyze)"},{"name":"กระโจนขย้ำ","en":"Pouncing Maul","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[9,10,11,12,13,14,15,17,18,19],"prereq":"-","desc":"กระโจนกัดคอ Crit การันตีถ้าเป้าหมาย HP ต่ำกว่าเกณฑ์","columns":["Damage Multiplier","HP Threshold"],"ranks":[{"Damage Multiplier":"150%","HP Threshold":"<15%"},{"Damage Multiplier":"150%","HP Threshold":"<18%"},{"Damage Multiplier":"150%","HP Threshold":"<22%"},{"Damage Multiplier":"150%","HP Threshold":"<25%"},{"Damage Multiplier":"150%","HP Threshold":"<28%"},{"Damage Multiplier":"150%","HP Threshold":"<32%"},{"Damage Multiplier":"150%","HP Threshold":"<35%"},{"Damage Multiplier":"150%","HP Threshold":"<38%"},{"Damage Multiplier":"150%","HP Threshold":"<42%"},{"Damage Multiplier":"150%","HP Threshold":"<45%"}],"formula":"Damage = Physical Base × 1.5 × (Crit ถ้าถึงเกณฑ์) × 100 / (100 + DEF)","note":"ตัวปิดจ๊อบ"},{"name":"กลืนกิน","en":"Devour","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"เมื่อปิดจ๊อบศัตรู กินเนื้อศัตรู ฟื้น HP ตัวเองและ Hunger ของปาร์ตี้","columns":["HP Heal","Hunger +"],"ranks":[{"HP Heal":"3%","Hunger +":"+1"},{"HP Heal":"5%","Hunger +":"+2"},{"HP Heal":"7%","Hunger +":"+3"},{"HP Heal":"9%","Hunger +":"+4"},{"HP Heal":"11%","Hunger +":"+5"},{"HP Heal":"14%","Hunger +":"+6"},{"HP Heal":"16%","Hunger +":"+7"},{"HP Heal":"18%","Hunger +":"+8"},{"HP Heal":"20%","Hunger +":"+9"},{"HP Heal":"22%","Hunger +":"+10"}],"formula":"ทำงานเมื่อสัตว์อสูรปิดจ๊อบ (ไม่ทำงานกับบอส)","note":"Synergy กับระบบ Survival"},{"name":"เลือดหิมพานต์","en":"Himmaphan Blood","tier":3,"kind":"Passive","target":"-","mp":[0,0,0,0,0,0,0,0,0,0],"prereq":"-","desc":"เลือดสัตว์หิมพานต์ เมื่อ HP ต่ำกว่า 50% ฟื้น HP ทุกเทิร์น","columns":["Regen ต่อเทิร์น"],"ranks":[{"Regen ต่อเทิร์น":"1%"},{"Regen ต่อเทิร์น":"2%"},{"Regen ต่อเทิร์น":"2%"},{"Regen ต่อเทิร์น":"3%"},{"Regen ต่อเทิร์น":"4%"},{"Regen ต่อเทิร์น":"4%"},{"Regen ต่อเทิร์น":"5%"},{"Regen ต่อเทิร์น":"6%"},{"Regen ต่อเทิร์น":"6%"},{"Regen ต่อเทิร์น":"7%"}],"formula":"Regen = Max HP × %","note":"เข้าคู่กับโทสะเดือดดาล"},{"name":"แยกเขี้ยวข่มขวัญ","en":"Baring Fangs","tier":3,"kind":"Active","target":"ศัตรู 1 ตัว","mp":[6,7,7,8,9,10,10,11,12,12],"prereq":"บันลือสีหนาท Rank 3","desc":"แยกเขี้ยวข่ม ศัตรูมีโอกาสหนีออกจากการต่อสู้","columns":["Flee Chance"],"ranks":[{"Flee Chance":"15%"},{"Flee Chance":"19%"},{"Flee Chance":"24%"},{"Flee Chance":"28%"},{"Flee Chance":"33%"},{"Flee Chance":"37%"},{"Flee Chance":"42%"},{"Flee Chance":"46%"},{"Flee Chance":"51%"},{"Flee Chance":"55%"}],"formula":"ศัตรูที่หนีให้ EXP 50% ไม่มีดรอป · ใช้กับบอส/สัตว์ชั้นสูงไม่ได้","note":"ประหยัดเวลาและ HP กับไฟต์ที่ไม่คุ้ม"},{"name":"คืนร่างแท้","en":"True Form","tier":4,"kind":"Ultimate","target":"ตัวเอง","mp":[20,22,25],"prereq":"Lv40 + กระหน่ำอสุรา Rank 10","desc":"คืนร่างแท้แห่งหิมพานต์ STR เพิ่มมหาศาล กัน Stun/Sleep แต่ใช้ Item และ Defense ไม่ได้ และ Bloodline Passive แรงขึ้น 2 เท่า","columns":["STR Bonus","Duration"],"ranks":[{"STR Bonus":"+30%","Duration":"3 เทิร์น"},{"STR Bonus":"+45%","Duration":"3 เทิร์น"},{"STR Bonus":"+60%","Duration":"3 เทิร์น"}],"formula":"STR × (1 + Bonus)","note":"Bloodline ×2 ทำให้สัตว์อสูรต่างเผ่าเล่น Ultimate ไม่เหมือนกัน"}]}],"bloodlines":[{"name":"ราชสีห์","passive":"ดาเมจ +15% เมื่อ HP มากกว่า 50%","role":"ตัวโจมตีที่ต้องการฮีลเลี้ยง"},{"name":"ครุฑ","passive":"AGI +15% และโอกาส 50% ได้ลงมือก่อนศัตรูทุกตัวในเทิร์นแรก","role":"เปิดไฟต์เร็ว"},{"name":"นาค","passive":"กัน Poison และโอกาส 25% ใส่ Poison ศัตรูที่ตีโดนตัวเอง","role":"แท็งก์สายพิษ"},{"name":"กินรี","passive":"เมื่อปิดจ๊อบศัตรู ฮีลปาร์ตี้ 5% Max HP","role":"ซัพพอร์ตแอบแฝง"},{"name":"ม้าอาชาไนย","passive":"ลด Hunger ปาร์ตี้ 15% ขณะอยู่ในปาร์ตี้ (รวมกับย่องตามรอย สูงสุด 60%)","role":"สายเดินทางไกล"},{"name":"คชสาร","passive":"Max HP +15% และกัน Stun","role":"แท็งก์บริสุทธิ์"}],"chapters":[{"n":1,"name":"ชายป่าหิมพานต์","lv":[1,12],"size":"20×20","floors":3,"steps_target":1900,"mood":"ป่าดิบชื้น แดดลอดใบไม้ ยังมีร่องรอยมนุษย์ เช่น ศาลเพียงตา ทางเกวียนร้าง เสือกระดาษผุ","palette":"เขียวธรรมชาติ แสงอุ่น","sound":"นก แมลง ลมพัดใบไม้","gimmick":"ไม่มี (ช่วงสอนระบบ)","gimmick_detail":"แมพมีเส้นทางหลักชัดเจน ทางแยกน้อย ใช้สอนการเดิน การวาดแผนที่ และการหลบสัตว์ชั้นสูง","material":"งาโลโต","gather":["สมุนไพรป่า","ไม้บิด","เศษหิน","ตะไคร่เรืองแสง"]},{"n":2,"name":"ลุ่มน้ำปัญจมหานที","lv":[12,24],"size":"24×24","floors":4,"steps_target":2000,"mood":"ลำธารและแม่น้ำห้าสายที่ไหลออกจากใจกลางป่า หมอกบนผิวน้ำ เรือแตกของคณะสำรวจรุ่นก่อน","palette":"ฟ้าคราม เขียวมอส","sound":"เสียงน้ำไหล กบ เสียงสัตว์น้ำผุดขึ้นมา","gimmick":"กระแสน้ำ","gimmick_detail":"ช่องน้ำพัดปาร์ตี้ไปตามทิศของกระแส 1 ช่องต่อก้าว (ไม่เสีย Hunger ระหว่างโดนพัด) ใช้เป็นทางลัดได้ถ้าจดทิศไว้ · กลางคืนระดับน้ำขึ้น ช่องที่ทำเครื่องหมาย \"น้ำตื้น\" กลายเป็นกระแสน้ำ ทำให้บางเส้นทางเปิด/ปิดตามเวลา","material":"เกล็ดมกร","gather":["ดินเหนียวริมน้ำ","สาหร่ายเงิน","หินกรวดมน","ต้นอ้อหิมพานต์"]},{"n":3,"name":"ทุ่งราชสีห์และผาหินแดง","lv":[24,36],"size":"26×26","floors":4,"steps_target":2050,"mood":"ทุ่งโล่ง หญ้าสูงท่วมหัว ผาหินสีแดง เสียงคำรามไกลๆ กระดูกของคณะสำรวจรุ่นก่อน","palette":"ทองหญ้าแห้ง แดงหิน","sound":"ลมพัดหญ้า เสียงคำรามสะท้อนผา","gimmick":"หญ้าสูง","gimmick_detail":"ช่องหญ้าสูงมองเห็นได้แค่ 1 ช่องข้างหน้า และโอกาสโดนซุ่มโจมตี (Ambush) +20% · เมื่อสัตว์ชั้นสูงอยู่ในระยะ 4 ช่อง จะมีเสียงคำรามเตือนพร้อมทิศทาง (ไม่บอกระยะ)","material":"เขี้ยวคชสีห์","gather":["หญ้าคา","หินแดง","รังผึ้งป่า","เขาสัตว์เก่า"]},{"n":4,"name":"ดงคชสาร รอบสระฉัททันต์","lv":[36,48],"size":"28×28","floors":5,"steps_target":2100,"mood":"ต้นไทรยักษ์ รากสูงกว่าบ้าน พื้นดินสั่นเป็นจังหวะ ทุกอย่างใหญ่กว่าตัวผู้เล่นหลายเท่า","palette":"เขียวเข้ม น้ำตาลเปลือกไม้ แสงลอดเป็นลำ","sound":"เสียงฝีเท้าหนัก เสียงแปร๋นไกลๆ","gimmick":"ฝูงช้าง","gimmick_detail":"สัตว์ชั้นสูงเดินเป็นฝูง 2–3 ตัวตามเส้นทางวนตายตัว เมื่อฝูงเดินชนผนังที่มีรอยแตก (มีไอคอนบนแผนที่) ผนังจะพังถาวร เกิดทางเดินใหม่ ผู้เล่นสามารถล่อฝูงให้พังผนังที่ต้องการได้","material":"งาช้างเหมะ","gather":["รากไทรยักษ์","ใบบัวสระ","ดินโป่ง","ผลไม้ป่ายักษ์"]},{"n":5,"name":"ถ้ำมโนศิลาและทางลงบาดาล","lv":[48,62],"size":"30×30","floors":5,"steps_target":2150,"mood":"ถ้ำหินแร่เรืองแสง เงียบ ชื้น ไม่เห็นท้องฟ้า ไม่มีร่องรอยมนุษย์อีกแล้ว","palette":"ม่วงคราม แร่เรืองแสงสีฟ้า","sound":"น้ำหยด เสียงสะท้อน เสียงเลื้อย","gimmick":"ความมืด","gimmick_detail":"ต้องจุดคบเพลิง (1 อันอยู่ได้ 80 ก้าว) ถ้าไม่มีแสง: มองเห็นแค่ 1 ช่อง, Encounter เร็วขึ้น 30%, ไอคอนสัตว์ชั้นสูงไม่แสดงบนแผนที่ · เวลากลางวัน/กลางคืนยังเดินตามปกติแต่ไม่มีผลกับแสง","material":"เกล็ดกิเลนปีก","gather":["มโนศิลา","แร่เรืองแสง","เห็ดถ้ำ","น้ำซับบาดาล"]},{"n":6,"name":"ผาวายุและยอดไม้สิมพลี","lv":[62,76],"size":"30×30","floors":6,"steps_target":2200,"mood":"หน้าผาเหนือเมฆ ลมแรง รังนกยักษ์บนยอดไม้สิมพลี มองลงไปเห็นชั้นที่ผ่านมาแล้ว","palette":"ขาวเมฆ ฟ้าสด ทองแดด","sound":"ลมหวีด เสียงปีกกระพือ","gimmick":"ลมและหลุม","gimmick_detail":"ช่องลมพัดปาร์ตี้เลื่อน 2 ช่องตามทิศลม · หลุมทำให้ตกลงชั้นล่าง (เสีย HP 10% และตกในจุดที่กำหนด) · สัตว์ชั้นสูงสายบินเดินข้ามผนังได้","material":"ขนหัสดีลิงค์","gather":["ขนนกยักษ์","กิ่งสิมพลี","หินเมฆ","น้ำค้างยอดเขา"]},{"n":7,"name":"สระอโนดาตและเขาทั้งห้า","lv":[76,92],"size":"32×32","floors":6,"steps_target":2250,"mood":"แสงทอง เงียบสนิท สวยงามจนน่ากลัว ใกล้แดนทิพย์ สัตว์บางตัวสื่อสารได้","palette":"ทองขาว ฟ้าใส เหนือจริง","sound":"เงียบ ดนตรีไกลๆ ที่ไม่รู้ที่มา","gimmick":"มายา","gimmick_detail":"ผนังลวงตา (เดินทะลุได้) และประตูซ่อน · บางเส้นทางสลับกันระหว่างกลางวัน/กลางคืน · แผนที่ที่ผู้เล่นวาดตอนกลางวันอาจไม่ถูกตอนกลางคืน ผู้เล่นต้องใช้สีพื้นแยกโซนเวลา","material":"ขนทองกินนรราช","gather":["บัวทอง","ทรายทอง","น้ำอโนดาต","หินผลึกเขาไกรลาส"]}],"weaponTier":{"1":[20,35],"2":[50,65],"3":[80,100],"4":[115,140],"5":[155,180],"6":[195,230],"7":[245,290]},"armorTier":{"1":[12,20],"2":[30,40],"3":[50,62],"4":[75,90],"5":[105,122],"6":[140,160],"7":[180,205]},"behaviors":{"Aggressive":{"hpMult":1.0,"defMult":1.0,"ai":"โจมตีตัวละครที่ HP เหลือน้อยที่สุดเสมอ","counter":"ท้าทัพ ดึงไปที่นักรบ, ดั้งบังภัย, ปักษาแหวกรัง"},"Defensive":{"hpMult":1.4,"defMult":1.5,"ai":"บัฟ DEF ตัวเองและพวกพ้อง ใช้ท่าป้องกันเมื่อ HP < 50%","counter":"เวทย์ (ใช้ Magic DEF), ศรทะลวงเกราะ, หักงวงไอยรา"},"Caster":{"hpMult":0.8,"defMult":0.9,"ai":"ใส่สถานะผิดปกติก่อนเสมอถ้าเป้าหมายยังไม่ติด","counter":"ยันต์กันคุณก่อน, ถอนพิษว่านยา หลัง, เครื่องรางต้านสถานะ"},"Pack":{"hpMult":0.7,"defMult":0.9,"ai":"มาเป็นฝูง 2–4 ตัว บางตัวเรียกพวกเพิ่มได้","counter":"สกิลโจมตีกลุ่ม, ฆ่าตัวเรียกพวกก่อน"},"Charger":{"hpMult":1.2,"defMult":1.1,"ai":"ใช้ 1 เทิร์นชาร์จ (มีข้อความเตือน) แล้วปล่อยท่าแรงเทิร์นถัดไป","counter":"Defense ในเทิร์นที่ปล่อย, มอญยันหลักยกเลิก, Stun ระหว่างชาร์จ"},"Thief":{"hpMult":0.8,"defMult":0.9,"ai":"ขโมยไอเทม/วัตถุดิบแล้วพยายามหนีในเทิร์นถัดไป","counter":"ฆ่าให้ไว, Bind กันหนี"},"Coward":{"hpMult":0.8,"defMult":0.9,"ai":"หนีเมื่อ HP < 50% (โอกาส 50% ต่อเทิร์น)","counter":"ดาเมจระเบิดเทิร์นเดียว, Bind"}},"monsters":[{"ch":1,"name":"กิหมี","tier":"ทั่วไป","beh":"Pack","lv":2,"floors":"ชั้น 1–3","group":"2–4","legend":"ใบหน้าและลำตัวมีขนเป็นพวงคล้ายสุนัขปักกิ่ง หางเป็นพวง เท้าเป็นอุ้ง","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["กัด","Physical 100%","-","60%"],["หอนเรียกฝูง","เรียกกิหมีเพิ่ม 1 ตัว (สูงสุด 4 ตัวในฉาก)","3 เทิร์น","40% ถ้าพวกเหลือ < 3"]],"drop":["ขนกิหมี","50%"],"rare":["หางพวงกิหมี","ปิดจ๊อบด้วยธาตุไฟ"],"stats":{"HP":42,"ATK":14,"DEF":6,"MDEF":3,"AGI":7,"ACC":5,"EXP":1,"GOLD":9}},{"ch":1,"name":"ติณสีห์","tier":"ทั่วไป","beh":"Defensive","lv":4,"floors":"ชั้น 1–3","group":"1–2","legend":"ราชสีห์ชั้นต่ำสุดในสี่จำพวกราชสีห์ กินหญ้าเป็นอาหาร","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["ขวิด","Physical 100%","-","50%"],["เหยียบย่ำ","Physical 80% + DEF เป้าหมาย −20% 2 เทิร์น","2 เทิร์น","30%"],["ตั้งหลัก","DEF ตัวเอง +30% 2 เทิร์น","3 เทิร์น","20% (HP < 50%: 50%)"]],"drop":["หนังติณสีห์","50%"],"rare":["แผงคอติณสีห์","ปิดจ๊อบภายใน 3 เทิร์น"],"stats":{"HP":126,"ATK":21,"DEF":14,"MDEF":8,"AGI":10,"ACC":5,"EXP":4,"GOLD":13}},{"ch":1,"name":"กระบิลปักษา","tier":"ทั่วไป","beh":"Thief","lv":5,"floors":"ชั้น 2–3","group":"1–2","legend":"หน้าคล้ายวานร มีปีกที่หัวไหล่ หางเป็นหางไก่","elem":{"fire":"N","water":"W","wind":"R","phys":"N"},"skills":[["ข่วน","Physical 90%","-","40%"],["ฉกของ","ขโมยวัตถุดิบในกระเป๋า 1 ชิ้น (สุ่ม) เทิร์นถัดไปพยายามหนี","-","60% (ครั้งเดียว)"]],"drop":["ขนปีกวานร","50%"],"rare":["คืนของที่ขโมย ×2","ฆ่าก่อนหนี"],"stats":{"HP":84,"ATK":24,"DEF":10,"MDEF":6,"AGI":11,"ACC":5,"EXP":6,"GOLD":15}},{"ch":1,"name":"ทิศากรจตุบท","tier":"ทั่วไป","beh":"Coward","lv":3,"floors":"ชั้น 1–2","group":"1","legend":"เดิมคล้ายนางโค สีกายหม่นคล้ายนกพิราบ ใหญ่เท่าโคหนุ่ม","elem":{"fire":"N","water":"N","wind":"N","phys":"W"},"skills":[["ดีด","Physical 80%","-","100% ถ้าไม่หนี"]],"drop":["เนื้อทิศากร","70%"],"rare":["เนื้อสันทิศากร","ปิดจ๊อบก่อนมันหนี"],"stats":{"HP":60,"ATK":18,"DEF":7,"MDEF":4,"AGI":9,"ACC":5,"EXP":2,"GOLD":11}},{"ch":1,"name":"ทักทอ","tier":"ทั่วไป","beh":"Aggressive","lv":7,"floors":"ชั้น 2–3","group":"1–2","legend":"มีกระหนกเป็นครีบรอบข้อมือ ท้องแขน ข้อเท้า และใต้เข่า","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["ซุ่ม","ได้ลงมือก่อนเสมอในเทิร์นแรก (Passive)","-","-"],["ครีบเฉือน","Physical 120%","-","70%"],["เฉือนคู่","Physical 70% × 2","2 เทิร์น","30%"]],"drop":["ครีบกระหนก","50%"],"rare":["ครีบกระหนกทอง","ปิดจ๊อบขณะติด Bind"],"stats":{"HP":135,"ATK":30,"DEF":14,"MDEF":9,"AGI":13,"ACC":5,"EXP":11,"GOLD":19}},{"ch":1,"name":"โลโต","tier":"สัตว์ชั้นสูง","beh":"Charger","lv":12,"floors":"ชั้น 1–3 (เดินวน)","group":"1","legend":"สิงห์จำพวกหนึ่ง มีงวงและงาเล็กๆ","elem":{"fire":"W","water":"N","wind":"N","phys":"R"},"skills":[["งวงฟาด","Physical 110%","-","50%"],["พุ่งงา","ชาร์จ 1 เทิร์น → Physical 250% ใส่ 1 คน","3 เทิร์น","50%"]],"drop":["งาโลโต","100%"],"rare":["งวงโลโต","ยกเลิกท่าพุ่งงาด้วยมอญยันหลัก แล้วชนะ"],"move":"เดินวนตามเส้นทางตายตัว 12 ช่อง ไม่ไล่ผู้เล่น","stats":{"HP":756,"ATK":65,"DEF":24,"MDEF":15,"AGI":19,"ACC":10,"EXP":94,"GOLD":87}},{"ch":1,"name":"สางแปลง","tier":"สัตว์ชั้นสูง","beh":"Aggressive","lv":12,"floors":"ชั้น 3","group":"1","legend":"หัวและลำตัวเป็นสิงห์ หงอนเป็นกิเลน จมูกและเท้าเป็นเสือ","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["ตะปบ","Physical 120%","-","60%"],["ตะครุบ","Physical 90% × 2 ใส่ตัวที่ HP ต่ำสุด","2 เทิร์น","40%"]],"drop":["หงอนสางแปลง","100%"],"rare":["จมูกเสือสางแปลง","ปิดจ๊อบด้วยธาตุน้ำ"],"move":"หยุดนิ่ง เมื่อเห็นผู้เล่นในแนวตรง 3 ช่อง จะไล่ตาม 1 ช่องต่อก้าว","stats":{"HP":630,"ATK":65,"DEF":22,"MDEF":13,"AGI":19,"ACC":10,"EXP":94,"GOLD":87}},{"ch":2,"name":"สินธพนัที","tier":"ทั่วไป","beh":"Aggressive","lv":14,"floors":"ชั้น 1–4","group":"1–3","legend":"หัวและลำตัวเป็นม้า หางเป็นปลา มีครีบที่หลังและน่อง","elem":{"fire":"R","water":"R","wind":"W","phys":"N"},"skills":[["ดีดหาง","Physical 70% × 2","-","70%"],["กระโจนน้ำ","Physical 130%","2 เทิร์น","30%"]],"drop":["ครีบสินธพ","50%"],"rare":["หางปลาสินธพ","ปิดจ๊อบด้วยธาตุลม"],"stats":{"HP":240,"ATK":53,"DEF":25,"MDEF":15,"AGI":22,"ACC":7,"EXP":42,"GOLD":33}},{"ch":2,"name":"วารีกุญชร","tier":"ทั่วไป","beh":"Defensive","lv":17,"floors":"ชั้น 1–4","group":"1–2","legend":"สี่เท้า หัวและลำตัวเป็นช้าง มีครีบคล้ายปลาที่แก้มและขา","elem":{"fire":"R","water":"N","wind":"W","phys":"N"},"skills":[["งวงฟาด","Physical 100%","-","50%"],["พ่นน้ำ","Blind 40% ทั้งปาร์ตี้","3 เทิร์น","30%"],["แช่น้ำ","ฟื้น HP 15% + DEF +30%","4 เทิร์น","20%"]],"drop":["หนังวารีกุญชร","50%"],"rare":["งาครีบ","ปิดจ๊อบขณะติด Paralyze"],"stats":{"HP":399,"ATK":62,"DEF":45,"MDEF":27,"AGI":25,"ACC":7,"EXP":61,"GOLD":39}},{"ch":2,"name":"มัจฉนาค","tier":"ทั่วไป","beh":"Caster","lv":19,"floors":"ชั้น 2–4","group":"1–2","legend":"ครึ่งปลาครึ่งนาค เกล็ดมีพิษ","elem":{"fire":"N","water":"R","wind":"W","phys":"N"},"skills":[["รัด","Physical 80%","-","40%"],["พิษเกล็ด","Poison 50% ใส่ 1 คน","2 เทิร์น","60% ถ้าเป้าหมายยังไม่ติด"]],"drop":["เกล็ดมัจฉนาค","50%"],"rare":["ถุงพิษมัจฉนาค","ปิดจ๊อบด้วย Poison"],"stats":{"HP":252,"ATK":69,"DEF":30,"MDEF":18,"AGI":28,"ACC":7,"EXP":76,"GOLD":43}},{"ch":2,"name":"กุมภีร์","tier":"ทั่วไป","beh":"Charger","lv":22,"floors":"ชั้น 3–4 (ช่องน้ำ)","group":"1","legend":"จระเข้ยักษ์แห่งหิมพานต์ ซ่อนตัวในกระแสน้ำ","elem":{"fire":"W","water":"R","wind":"N","phys":"N"},"skills":[["งับ","Physical 110%","-","50%"],["งับลากน้ำ","ชาร์จ 1 เทิร์น → Physical 180% + Bind 2 เทิร์น","3 เทิร์น","50%"]],"drop":["หนังกุมภีร์","50%"],"rare":["ฟันกุมภีร์","ยกเลิกท่าชาร์จแล้วชนะ"],"stats":{"HP":432,"ATK":78,"DEF":42,"MDEF":25,"AGI":31,"ACC":7,"EXP":101,"GOLD":49}},{"ch":2,"name":"มกร","tier":"สัตว์ชั้นสูง","beh":"Charger","lv":24,"floors":"ชั้น 2–4 (ตามกระแสน้ำ)","group":"1","legend":"สัตว์น้ำผสมมังกรและจระเข้ ปากใหญ่กลืนสัตว์ได้ทั้งตัว","elem":{"fire":"N","water":"R","wind":"W","phys":"N"},"skills":[["ฟาดหาง","Physical 100% ทั้งปาร์ตี้","2 เทิร์น","40%"],["กลืน","ชาร์จ 1 เทิร์น → กลืนตัวละคร 1 คนออกจากไฟต์ 2 เทิร์น (ตี HP มกร 15% เพื่อให้คาย)","4 เทิร์น","40%"],["กัด","Physical 120%","-","20%"]],"drop":["เกล็ดมกร","100%"],"rare":["ไข่มุกมกร","ชนะโดยไม่มีใครถูกกลืน"],"move":"ไหลไปตามกระแสน้ำ 1 ช่องต่อก้าว กลางคืนเส้นทางเปลี่ยนตามระดับน้ำ","stats":{"HP":1404,"ATK":119,"DEF":46,"MDEF":27,"AGI":34,"ACC":12,"EXP":360,"GOLD":159}},{"ch":2,"name":"วารีกุญชรจ่าโขลง","tier":"สัตว์ชั้นสูง","beh":"Defensive","lv":24,"floors":"ชั้น 4","group":"1 + วารีกุญชร 1","legend":"วารีกุญชรตัวใหญ่ งาแตกข้างหนึ่ง","elem":{"fire":"R","water":"N","wind":"W","phys":"N"},"skills":[["คลื่นซัด","Physical 90% ทั้งปาร์ตี้","2 เทิร์น","40%"],["ปกป้องโขลง","รับดาเมจแทนพวก 50% 1 เทิร์น","3 เทิร์น","30%"],["พ่นน้ำ","Blind 50% ทั้งปาร์ตี้","3 เทิร์น","30%"]],"drop":["งาแตกจ่าโขลง","100%"],"rare":["ครีบใหญ่จ่าโขลง","ฆ่าวารีกุญชรลูกน้องก่อน"],"move":"เฝ้าอยู่กับที่บนสะพานหิน ปิดทางลัด","stats":{"HP":1638,"ATK":119,"DEF":62,"MDEF":37,"AGI":34,"ACC":12,"EXP":360,"GOLD":159}},{"ch":3,"name":"กาฬสีห์","tier":"ทั่วไป","beh":"Aggressive","lv":26,"floors":"ชั้น 1–4","group":"1–2","legend":"ราชสีห์สีดำ หนึ่งในสี่จำพวกราชสีห์","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["ขย้ำคอ","Physical 120% (Crit +20%)","-","70%"],["ตะปบคู่","Physical 70% × 2","2 เทิร์น","30%"]],"drop":["หนังกาฬสีห์","50%"],"rare":["เขี้ยวดำ","ปิดจ๊อบด้วยคริติคอล"],"stats":{"HP":420,"ATK":91,"DEF":45,"MDEF":27,"AGI":36,"ACC":9,"EXP":140,"GOLD":57}},{"ch":3,"name":"บัณฑุราชสีห์","tier":"ทั่วไป","beh":"Pack","lv":28,"floors":"ชั้น 1–4","group":"2–3","legend":"ราชสีห์สีเหลืองดังใบไม้แห้ง","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["กัด","Physical 100%","-","60%"],["คำรามรวมฝูง","ATK พวกเดียวกัน +20% 3 เทิร์น","3 เทิร์น","40%"]],"drop":["แผงคอเหลือง","50%"],"rare":["ขนทองบัณฑุ","ฆ่าทั้งฝูงในเทิร์นเดียว"],"stats":{"HP":315,"ATK":98,"DEF":43,"MDEF":26,"AGI":39,"ACC":9,"EXP":162,"GOLD":61}},{"ch":3,"name":"เกสรสิงหะ","tier":"ทั่วไป","beh":"Aggressive","lv":30,"floors":"ชั้น 2–4","group":"1–2","legend":"ลำตัวเป็นสิงห์ หัวมีหงอน เท้าเป็นกีบ","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["ถีบกีบ","Physical 110%","-","60%"],["คำรามข่ม","ATK ปาร์ตี้ −20% 2 เทิร์น","3 เทิร์น","40%"]],"drop":["หงอนเกสร","50%"],"rare":["กีบเกสร","ปิดจ๊อบด้วยธาตุลม"],"stats":{"HP":480,"ATK":104,"DEF":51,"MDEF":31,"AGI":41,"ACC":9,"EXP":186,"GOLD":65}},{"ch":3,"name":"อัปสรสีห์","tier":"ทั่วไป","beh":"Caster","lv":32,"floors":"ชั้น 2–4","group":"1","legend":"ท่อนบนเป็นมนุษย์ผู้หญิง ท่อนล่างเป็นราชสีห์ เท้าเป็นกีบคู่อย่างกวาง","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["เพลงกล่อม","Sleep 35% ทั้งปาร์ตี้","3 เทิร์น","50% ถ้ามีคนยังไม่หลับ"],["ข่วน","Physical 90%","-","50%"]],"drop":["ผ้าแพรอัปสร","50%"],"rare":["เสียงขับกล่อม (ไอเทมเครื่องราง)","ชนะโดยไม่มีใครหลับ"],"stats":{"HP":408,"ATK":110,"DEF":49,"MDEF":29,"AGI":43,"ACC":9,"EXP":211,"GOLD":69}},{"ch":3,"name":"ไกรสรคาวี","tier":"ทั่วไป","beh":"Charger","lv":34,"floors":"ชั้น 3–4","group":"1","legend":"ศีรษะถึงคอเป็นม้า มีเขาอย่างโค หูอย่างเสือ ลำตัวอย่างราชสีห์","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["ขวิด","Physical 110%","-","50%"],["ขวิดพุ่ง","ชาร์จ 1 เทิร์น → Physical 220% + Stun 40%","3 เทิร์น","50%"]],"drop":["เขาคาวี","50%"],"rare":["หูเสือคาวี","ยกเลิกท่าชาร์จแล้วชนะ"],"stats":{"HP":648,"ATK":117,"DEF":63,"MDEF":38,"AGI":46,"ACC":9,"EXP":238,"GOLD":73}},{"ch":3,"name":"คชสีห์","tier":"สัตว์ชั้นสูง","beh":"Defensive","lv":36,"floors":"ชั้น 2–4 (เดินวน)","group":"1","legend":"หัวเหมือนช้าง ลำตัวคล้ายสิงห์ มีเครา","elem":{"fire":"W","water":"W","wind":"N","phys":"R"},"skills":[["กระทืบแผ่นดิน","Physical 90% ทั้งปาร์ตี้ + Stun 25%","3 เทิร์น","40%"],["งวงรัด","Physical 100% + Bind","2 เทิร์น","30%"],["ยืนตระหง่าน","DEF +50% 2 เทิร์น","4 เทิร์น","30%"]],"drop":["เขี้ยวคชสีห์","100%"],"rare":["งาคชสีห์","ชนะภายใน 6 เทิร์น"],"move":"เดินวนรอบผาหินแดง 16 ช่อง","stats":{"HP":2394,"ATK":172,"DEF":91,"MDEF":55,"AGI":48,"ACC":14,"EXP":799,"GOLD":231}},{"ch":3,"name":"สิงหรามังกร","tier":"สัตว์ชั้นสูง","beh":"Aggressive","lv":36,"floors":"ชั้น 4 (ซ่อนในหญ้าสูง)","group":"1","legend":"หัวเป็นมังกร ลำตัวเป็นสิงห์ เท้าเป็นอุ้งซ่อนเล็บ","elem":{"fire":"R","water":"W","wind":"N","phys":"N"},"skills":[["พ่นไฟ","Magic(ไฟ) 120% ทั้งปาร์ตี้","2 เทิร์น","40%"],["ตะปบ","Physical 130%","-","60%"]],"drop":["เกล็ดสิงหรา","100%"],"rare":["ต่อมไฟมังกร","ปิดจ๊อบด้วยธาตุน้ำ"],"move":"หยุดในหญ้าสูง ไม่แสดงบนแผนที่จนกว่าจะอยู่ในระยะ 2 ช่อง แล้วไล่ตาม","stats":{"HP":1710,"ATK":172,"DEF":61,"MDEF":36,"AGI":48,"ACC":14,"EXP":799,"GOLD":231}},{"ch":4,"name":"ช้างตระกูลกาฬาวก","tier":"ทั่วไป","beh":"Pack","lv":38,"floors":"ชั้น 1–5","group":"2–3","legend":"ช้างสีดำ ตระกูลต่ำสุดในช้าง 10 ตระกูลตามไตรภูมิ","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["เหยียบ","Physical 120%","-","70%"],["แปร๋นเรียกโขลง","เรียกช้างกาฬาวกเพิ่ม 1 ตัว","4 เทิร์น","30% ถ้าพวกเหลือ < 3"]],"drop":["หนังช้างดำ","50%"],"rare":["งาช้างดำ","ปิดจ๊อบด้วยธาตุไฟ"],"stats":{"HP":420,"ATK":130,"DEF":57,"MDEF":34,"AGI":51,"ACC":11,"EXP":296,"GOLD":81}},{"ch":4,"name":"สินธพกุญชร","tier":"ทั่วไป","beh":"Charger","lv":41,"floors":"ชั้น 1–5","group":"1–2","legend":"ลำตัวเป็นม้า หัวคล้ายช้างมีงวงและงา ตาและปากคล้ายสิงห์ มีหงอน","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["งาแทง","Physical 110%","-","50%"],["วิ่งชน","ชาร์จ 1 เทิร์น → Physical 200% + ตัวที่โดนลงมือเป็นคนสุดท้ายเทิร์นถัดไป","3 เทิร์น","50%"]],"drop":["หงอนสินธพกุญชร","50%"],"rare":["งาม้าช้าง","ยกเลิกท่าชาร์จแล้วชนะ"],"stats":{"HP":774,"ATK":139,"DEF":75,"MDEF":45,"AGI":54,"ACC":11,"EXP":344,"GOLD":87}},{"ch":4,"name":"กรินทปักษา","tier":"ทั่วไป","beh":"Defensive","lv":44,"floors":"ชั้น 2–5","group":"1–2","legend":"ช้างพลายมีปีกที่สะบักทั้งสองข้าง หางคล้ายแพนหางนก","elem":{"fire":"W","water":"N","wind":"R","phys":"N"},"skills":[["ปีกฟาด","Physical 100%","-","50%"],["กางปีกคุ้มฝูง","DEF พวกเดียวกัน +30% 2 เทิร์น","3 เทิร์น","50%"]],"drop":["ขนปีกกรินท","50%"],"rare":["แพนหางกรินท","ปิดจ๊อบขณะติด Blind"],"stats":{"HP":966,"ATK":149,"DEF":110,"MDEF":66,"AGI":58,"ACC":11,"EXP":396,"GOLD":93}},{"ch":4,"name":"คชปักษา","tier":"ทั่วไป","beh":"Aggressive","lv":46,"floors":"ชั้น 3–5","group":"1–2","legend":"รูปกายคล้ายครุฑ มีงวงและงาอย่างช้าง","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["โฉบ","Physical 120% (Evasion ตัวเอง +20% 1 เทิร์น)","-","70%"],["งวงตวัด","Physical 70% ทั้งปาร์ตี้","2 เทิร์น","30%"]],"drop":["งวงคชปักษา","50%"],"rare":["ขนครุฑคชปักษา","ปิดจ๊อบด้วยธาตุน้ำ"],"stats":{"HP":720,"ATK":155,"DEF":77,"MDEF":46,"AGI":60,"ACC":11,"EXP":432,"GOLD":97}},{"ch":4,"name":"ช้างตระกูลเหมะ","tier":"สัตว์ชั้นสูง","beh":"Charger","lv":48,"floors":"ชั้น 2–5 (เดินเป็นฝูง)","group":"1–2","legend":"ช้างสีทอง ตระกูลสูงในช้าง 10 ตระกูล","elem":{"fire":"N","water":"W","wind":"N","phys":"R"},"skills":[["แผดร้อง","DEF ปาร์ตี้ −25% 3 เทิร์น","4 เทิร์น","30%"],["ถล่ม","ชาร์จ 1 เทิร์น → Physical 200% ทั้งปาร์ตี้","4 เทิร์น","40%"],["เหยียบ","Physical 130%","-","30%"]],"drop":["งาช้างเหมะ","100%"],"rare":["ขนทองช้างเหมะ","ชนะโดยไม่มีใครตาย"],"move":"ฝูง 2 ตัวเดินตามเส้นทางวน 20 ช่อง พังผนังที่มีรอยแตก","stats":{"HP":2700,"ATK":226,"DEF":88,"MDEF":53,"AGI":63,"ACC":16,"EXP":1411,"GOLD":303}},{"ch":4,"name":"ช้างตระกูลอุโบสถ","tier":"สัตว์ชั้นสูง","beh":"Defensive","lv":48,"floors":"ชั้น 5","group":"1","legend":"ช้างสีทองตระกูลสูง รองจากตระกูลฉัททันต์","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["ปกป้องฝูง","รับดาเมจแทนพวก 60% 1 เทิร์น","3 เทิร์น","30%"],["งาทอง","Physical 140%","-","50%"],["สงบใจ","ลบดีบัฟตัวเอง + ฟื้น HP 10%","4 เทิร์น","20%"]],"drop":["งาทองอุโบสถ","100%"],"rare":["ผ้าคลุมอุโบสถ","ปิดจ๊อบด้วยธาตุลม"],"move":"เฝ้าทางขึ้นสระฉัททันต์ ไม่เคลื่อนที่","stats":{"HP":3150,"ATK":226,"DEF":120,"MDEF":72,"AGI":63,"ACC":16,"EXP":1411,"GOLD":303}},{"ch":5,"name":"เหรา","tier":"ทั่วไป","beh":"Caster","lv":50,"floors":"ชั้น 1–5","group":"1–2","legend":"หัวและลำตัวเป็นนาค มีเท้าและหนวดเป็นมังกร","elem":{"fire":"W","water":"R","wind":"N","phys":"N"},"skills":[["รัดกาย","Physical 90% + Bind 50%","2 เทิร์น","60%"],["กัด","Physical 110%","-","40%"]],"drop":["หนวดเหรา","50%"],"rare":["เกล็ดเหรา","ปิดจ๊อบด้วยธาตุไฟ"],"stats":{"HP":624,"ATK":168,"DEF":75,"MDEF":45,"AGI":65,"ACC":13,"EXP":510,"GOLD":105}},{"ch":5,"name":"ไกรสรนาคา","tier":"ทั่วไป","beh":"Aggressive","lv":53,"floors":"ชั้น 1–5","group":"1–2","legend":"ศีรษะและหางเป็นนาค เล็บเป็นสิงห์ ลำตัวมีเกล็ด","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["เล็บพิษ","Physical 110% + Poison 40%","-","70%"],["ฟาดหางนาค","Physical 80% × 2","2 เทิร์น","30%"]],"drop":["เล็บไกรสรนาคา","50%"],"rare":["ต่อมพิษนาคา","ปิดจ๊อบด้วย Poison"],"stats":{"HP":825,"ATK":178,"DEF":88,"MDEF":53,"AGI":69,"ACC":13,"EXP":572,"GOLD":111}},{"ch":5,"name":"นาคปักษี","tier":"ทั่วไป","beh":"Caster","lv":56,"floors":"ชั้น 2–5","group":"1–2","legend":"นาคมีปีก บินในโพรงถ้ำ","elem":{"fire":"N","water":"R","wind":"W","phys":"N"},"skills":[["ตาสะกด","Paralyze 45% ใส่ 1 คน","2 เทิร์น","60% ถ้าเป้าหมายยังไม่ติด"],["โฉบ","Physical 100%","-","40%"]],"drop":["ปีกนาค","50%"],"rare":["ดวงตานาคปักษี","ปิดจ๊อบขณะติด Blind"],"stats":{"HP":696,"ATK":187,"DEF":83,"MDEF":50,"AGI":72,"ACC":13,"EXP":638,"GOLD":117}},{"ch":5,"name":"กิเลน","tier":"ทั่วไป","beh":"Defensive","lv":59,"floors":"ชั้น 3–5","group":"1","legend":"หัวเป็นมังกร ลำตัวคล้ายม้า หางเป็นพวง เท้าเป็นกีบ ลำตัวมีเกล็ด","elem":{"fire":"R","water":"R","wind":"R","phys":"W"},"skills":[["เกล็ดสะท้อน","สะท้อนดาเมจเวทย์ 30% กลับไปที่ผู้ร่าย (Passive)","-","-"],["ขวิดเกล็ด","Physical 120%","-","60%"],["ม้าเหยียบ","Physical 80% ทั้งปาร์ตี้","2 เทิร์น","40%"]],"drop":["เกล็ดกิเลน","50%"],"rare":["เขากิเลน","ปิดจ๊อบด้วยกายภาพโดยไม่ใช้เวทย์ทั้งไฟต์"],"stats":{"HP":1281,"ATK":197,"DEF":146,"MDEF":88,"AGI":76,"ACC":13,"EXP":708,"GOLD":123}},{"ch":5,"name":"กิเลนปีก","tier":"สัตว์ชั้นสูง","beh":"Aggressive","lv":62,"floors":"ชั้น 2–5 (ไล่ตามแสง)","group":"1","legend":"หัวเหมือนเหรา ลำตัวเป็นสิงห์ มีเกล็ดและปีก","elem":{"fire":"R","water":"W","wind":"N","phys":"N"},"skills":[["เพลิงมังกร","Magic(ไฟ) 130% ทั้งปาร์ตี้","2 เทิร์น","40%"],["กรงเล็บ","Physical 140%","-","60%"]],"drop":["เกล็ดกิเลนปีก","100%"],"rare":["ปีกกิเลน","ปิดจ๊อบด้วยธาตุน้ำ"],"move":"ไล่ตามปาร์ตี้ที่ถือคบเพลิงภายในระยะ 5 ช่อง ถ้าดับคบเพลิงจะหยุดไล่","stats":{"HP":2880,"ATK":289,"DEF":102,"MDEF":61,"AGI":79,"ACC":18,"EXP":2344,"GOLD":387}},{"ch":5,"name":"เหราพตจ่าถ้ำ","tier":"สัตว์ชั้นสูง","beh":"Caster","lv":62,"floors":"ชั้น 5","group":"1 + เหรา 2","legend":"เหราตัวใหญ่ หนวดยาวเรืองแสง","elem":{"fire":"W","water":"R","wind":"N","phys":"N"},"skills":[["รัดรวบ","Bind 50% ทั้งปาร์ตี้","3 เทิร์น","40%"],["ดับแสง","หลังจบไฟต์ คบเพลิงดับ (Passive)","-","-"],["กัด","Physical 130%","-","60%"]],"drop":["หนวดเรืองแสง","100%"],"rare":["ไข่มุกบาดาล","ชนะโดยไม่มีใครติด Bind"],"move":"เฝ้าทางลงบาดาล ไม่เคลื่อนที่","stats":{"HP":2304,"ATK":289,"DEF":92,"MDEF":55,"AGI":79,"ACC":18,"EXP":2344,"GOLD":387}},{"ch":6,"name":"การวิก","tier":"ทั่วไป","beh":"Aggressive","lv":64,"floors":"ชั้น 1–6","group":"1–3","legend":"หัวเป็นนกอินทรี มีหงอน ท่อนบนคล้ายมนุษย์ ท่อนล่างมีปีก ขา และขนหางเหมือนไก่","elem":{"fire":"N","water":"W","wind":"R","phys":"N"},"skills":[["จิกรัว","Physical 50% × 3","-","70%"],["โฉบสูง","Evasion +30% 1 เทิร์น","3 เทิร์น","30%"]],"drop":["ขนการวิก","50%"],"rare":["หงอนการวิก","ปิดจ๊อบด้วยธาตุน้ำ"],"stats":{"HP":990,"ATK":213,"DEF":105,"MDEF":63,"AGI":82,"ACC":15,"EXP":832,"GOLD":133}},{"ch":6,"name":"อสุรปักษา","tier":"ทั่วไป","beh":"Charger","lv":67,"floors":"ชั้น 1–6","group":"1–2","legend":"ครึ่งบนเป็นยักษ์สวมเครื่องประดับ ครึ่งล่างเป็นนก มีปีกออกจากเอว","elem":{"fire":"W","water":"N","wind":"R","phys":"N"},"skills":[["ทุบ","Physical 120%","-","50%"],["ทุบกระบอง","ชาร์จ 1 เทิร์น → Physical 260%","3 เทิร์น","50%"]],"drop":["เครื่องประดับยักษ์","50%"],"rare":["กระบองอสุร","ยกเลิกท่าชาร์จแล้วชนะ"],"stats":{"HP":1242,"ATK":222,"DEF":121,"MDEF":73,"AGI":85,"ACC":15,"EXP":911,"GOLD":139}},{"ch":6,"name":"ทัณฑิมา","tier":"ทั่วไป","beh":"Defensive","lv":70,"floors":"ชั้น 2–6","group":"1–2","legend":"หัวเป็นนก มีหงอน จะงอยปากใหญ่ มีเขี้ยว ถือไม้เท้าหรือกระบองเสมอ","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["ตั้งการ์ด","DEF +60% 1 เทิร์น","2 เทิร์น","40%"],["ฟาดไม้เท้า","Physical 120% + Stun 20%","-","60%"]],"drop":["จะงอยทัณฑิมา","50%"],"rare":["ไม้เท้าทัณฑิมา","ปิดจ๊อบในเทิร์นที่มันตั้งการ์ด"],"stats":{"HP":1512,"ATK":232,"DEF":172,"MDEF":104,"AGI":89,"ACC":15,"EXP":994,"GOLD":145}},{"ch":6,"name":"ไกรสรปักษา","tier":"ทั่วไป","beh":"Caster","lv":73,"floors":"ชั้น 3–6","group":"1–2","legend":"เท้าเป็นอุ้งสิงห์ ศีรษะคล้ายนกอินทรีมีหงอน มีปีกที่หลังสะบัก ลำตัวมีเกล็ด","elem":{"fire":"W","water":"N","wind":"X","phys":"N"},"skills":[["พายุปีก","Magic(ลม) 90% ทั้งปาร์ตี้ + Blind 30%","2 เทิร์น","50%"],["ตะปบ","Physical 110%","-","50%"]],"drop":["ปีกไกรสร","50%"],"rare":["เกล็ดไกรสรปักษา","ปิดจ๊อบด้วยธาตุไฟ"],"stats":{"HP":900,"ATK":242,"DEF":108,"MDEF":65,"AGI":93,"ACC":15,"EXP":1080,"GOLD":151}},{"ch":6,"name":"หัสดีลิงค์","tier":"สัตว์ชั้นสูง","beh":"Aggressive","lv":76,"floors":"ชั้น 2–6 (บินข้ามผนัง)","group":"1","legend":"สองเท้า หัวคล้ายคชสีห์มีงวงและงา ลำตัวเป็นนก มีกำลังเท่าช้างสาร 5 เชือก","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["คาบเหยื่อ","คาบตัวละคร 1 คนออกจากไฟต์ 2 เทิร์น แล้วปล่อยลงมา (Physical 150%)","4 เทิร์น","35%"],["งวงฟาด","Physical 140%","-","65%"]],"drop":["ขนหัสดีลิงค์","100%"],"rare":["งาหัสดี","ชนะโดยไม่มีใครถูกคาบ"],"move":"บินตรงเข้าหาผู้เล่นข้ามผนังได้ เมื่ออยู่ในระยะ 6 ช่อง","stats":{"HP":3510,"ATK":352,"DEF":125,"MDEF":75,"AGI":96,"ACC":20,"EXP":3511,"GOLD":471}},{"ch":6,"name":"สกุณไกรสร","tier":"สัตว์ชั้นสูง","beh":"Pack","lv":76,"floors":"ชั้น 6","group":"1 + การวิก 2","legend":"หัวเป็นนก ลำตัวเป็นสิงห์ หางมีแผงขน เท้ามี 4 นิ้ว เล็บยาว","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["สั่งฝูง","เรียกการวิก 2 ตัว","4 เทิร์น","40% ถ้าพวกเหลือ < 2"],["เล็บยาว","Physical 130%","-","60%"]],"drop":["แผงขนสกุณ","100%"],"rare":["เล็บสกุณไกรสร","ฆ่าการวิกที่ถูกเรียกครบก่อน"],"move":"เดินวนรอบรังบนยอดไม้สิมพลี","stats":{"HP":2457,"ATK":352,"DEF":112,"MDEF":67,"AGI":96,"ACC":20,"EXP":3511,"GOLD":471}},{"ch":7,"name":"กินนร / กินรี","tier":"ทั่วไป","beh":"Caster","lv":78,"floors":"ชั้น 1–6","group":"2","legend":"ครึ่งมนุษย์ครึ่งนก","elem":{"fire":"R","water":"R","wind":"R","phys":"W"},"skills":[["ระบำสะกด","Sleep 40% ทั้งปาร์ตี้","3 เทิร์น","40%"],["เพลงเยียวยา","ฮีลพวกเดียวกัน 20% Max HP","2 เทิร์น","30%"],["ปีกฟาด","Physical 100%","-","30%"]],"drop":["ขนกินนร","50%"],"rare":["ปิ่นกินรี","ปิดจ๊อบทั้งคู่ในเทิร์นเดียว"],"stats":{"HP":960,"ATK":258,"DEF":115,"MDEF":69,"AGI":99,"ACC":17,"EXP":1232,"GOLD":161}},{"ch":7,"name":"เหมราช","tier":"ทั่วไป","beh":"Defensive","lv":81,"floors":"ชั้น 1–6","group":"1–2","legend":"หงส์ผสมสิงห์ หัวและลำตัวเป็นสิงห์","elem":{"fire":"N","water":"W","wind":"N","phys":"N"},"skills":[["ปีกคุ้มภัย","กันสถานะผิดปกติให้พวกเดียวกัน 2 ครั้ง","3 เทิร์น","40%"],["ตะปบหงส์","Physical 130%","-","60%"]],"drop":["ขนเหมราช","50%"],"rare":["มงกุฎเหมราช","ปิดจ๊อบด้วยธาตุน้ำ"],"stats":{"HP":1743,"ATK":267,"DEF":199,"MDEF":119,"AGI":102,"ACC":17,"EXP":1328,"GOLD":167}},{"ch":7,"name":"เทพนรสิงห์","tier":"ทั่วไป","beh":"Aggressive","lv":84,"floors":"ชั้น 2–6","group":"1–2","legend":"สี่เท้า ลำตัวเป็นม้า หัวเป็นสิงโต","elem":{"fire":"W","water":"N","wind":"N","phys":"N"},"skills":[["กรงเล็บทิพย์","Physical 130% ไม่สนใจ DEF 50%","-","70%"],["คำรามทิพย์","ลบบัฟของปาร์ตี้ทั้งหมด","4 เทิร์น","30%"]],"drop":["แผงคอทิพย์","50%"],"rare":["เล็บทิพย์","ปิดจ๊อบด้วยธาตุไฟ"],"stats":{"HP":1290,"ATK":277,"DEF":137,"MDEF":82,"AGI":106,"ACC":17,"EXP":1428,"GOLD":173}},{"ch":7,"name":"โตเทพอัสดร","tier":"ทั่วไป","beh":"Charger","lv":87,"floors":"ชั้น 3–6","group":"1","legend":"สิงห์ผสมม้าแห่งเทพ จับพญานาคเป็นอาหาร","elem":{"fire":"N","water":"N","wind":"W","phys":"N"},"skills":[["กีบทิพย์","Physical 120%","-","50%"],["พุ่งทะยาน","ชาร์จ 1 เทิร์น → Physical 180% ทั้งปาร์ตี้","3 เทิร์น","50%"]],"drop":["กีบอัสดร","50%"],"rare":["แผงคออัสดร","ยกเลิกท่าชาร์จแล้วชนะ"],"stats":{"HP":1602,"ATK":286,"DEF":156,"MDEF":94,"AGI":109,"ACC":17,"EXP":1531,"GOLD":179}},{"ch":7,"name":"ไกรสรจำแลง","tier":"สัตว์ชั้นสูง","beh":"Caster","lv":92,"floors":"ชั้น 2–6 (ในผนังลวงตา)","group":"1","legend":"ราชสีห์ที่แปลงกายได้","elem":{"fire":"?","water":"?","wind":"?","phys":"?"},"skills":[["จำแลง","สุ่มจุดอ่อนใหม่ทุก 2 เทิร์น (จุดอ่อน 1 ธาตุ, ต้านทาน 2 ธาตุ)","2 เทิร์น","อัตโนมัติ"],["ก๊อปท่า","ใช้สกิลล่าสุดที่สมาชิกปาร์ตี้ใช้ ใส่ปาร์ตี้","3 เทิร์น","40%"],["ตะปบ","Physical 140%","-","60%"]],"drop":["ขนจำแลง","100%"],"rare":["ดวงใจจำแลง","ใช้เพ่งกสิณทุกครั้งที่มันเปลี่ยนร่าง แล้วชนะ"],"move":"ซ่อนในผนังลวงตา โผล่เมื่อผู้เล่นเดินผ่านช่องติดกัน","stats":{"HP":3384,"ATK":423,"DEF":135,"MDEF":81,"AGI":115,"ACC":22,"EXP":5134,"GOLD":567}},{"ch":7,"name":"กินนรราช","tier":"สัตว์ชั้นสูง","beh":"Caster","lv":92,"floors":"ชั้น 6","group":"1 + กินนร 2","legend":"กินนรผู้นำ ปีกสีทอง","elem":{"fire":"R","water":"R","wind":"R","phys":"W"},"skills":[["เพลงแห่งอโนดาต","ชุบชีวิตพวกเดียวกัน 1 ตัวที่ 50% HP","4 เทิร์น","50% ถ้ามีพวกตาย"],["ระบำทอง","Sleep 50% ทั้งปาร์ตี้","3 เทิร์น","30%"],["ปีกทอง","Physical 140%","-","20%"]],"drop":["ขนทองกินนรราช","100%"],"rare":["พิณกินนร","ฆ่ากินนรราชก่อนลูกน้อง"],"move":"เฝ้าทางขึ้นเขาไกรลาส ไม่เคลื่อนที่","stats":{"HP":3384,"ATK":423,"DEF":135,"MDEF":81,"AGI":115,"ACC":22,"EXP":5134,"GOLD":567}}],"bossReserved":["ไกรสรราชสีห์","ช้างฉัททันต์","พญานาค","ครุฑ","หงส์ทอง","ปลาอานนท์","เอราวัณ"]};
+</script>
+<script>
+"use strict";
+/* ================================================================ DATA */
+const G = window.GDD, C = G.constants;
+const CH = G.chapters[0];
+const CLS = Object.fromEntries(G.classes.map(c => [c.key, c]));
+const MON = G.monsters.filter(m => m.ch === 1);
+const num = s => { const v = parseFloat(String(s).replace(/[^0-9.\-]/g, "")); return isNaN(v) ? 0 : Math.abs(v); };
+const pct = s => num(s) / 100;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const expNeed = L => 3 * L * L + 3 * L + 1;
+const ELEM_TH = {fire:"ไฟ", water:"น้ำ", wind:"ลม", phys:"กายภาพ"};
+const EMOD = C.ELEMENT_MOD;
+
+/* skill effect table: maps each skill (by Thai name) to a generic effect kind.
+   Values are read from the rank table of the JSON so numbers stay in sync with the GDD. */
+const FX = {
+  "ไม้จ้วงฟัน":{t:"dmg",tg:"one",m:"Damage Multiplier"},
+  "ตั้งดั้งพิทักษ์":{t:"buff",tg:"self",stat:"def",v:"DEF Bonus",d:"Duration"},
+  "ท้าทัพ":{t:"provoke",v:"Success Chance",d:"Duration"},
+  "ชำนาญเพลงดาบ":{t:"pas",k:"atk",v:"ATK Bonus"}, "กายคงกระพัน":{t:"pas",k:"hp",v:"Max HP Bonus"},
+  "ไม้ปัดกวาด":{t:"dmg",tg:"all",m:"Damage Multiplier"},
+  "ดั้งบังภัย":{t:"guard",v:"Damage ที่รับแทน"},
+  "ดาบลงยันต์":{t:"dmg",tg:"one",m:"Damage Multiplier",el:"auto"},
+  "โห่ร้องออกศึก":{t:"buff",tg:"party",stat:"atk",v:"ATK Bonus",d:"Duration"},
+  "ไม้ปัดสวน":{t:"pas",k:"counter",v:"Proc Chance"}, "ใจทหารหาญ":{t:"pas",k:"survive",v:"Proc Chance"},
+  "กำแพงพระนคร":{t:"buff",tg:"party",stat:"dr",v:"Party Damage Reduction",d:"Duration"},
+  "สลับฟันปลา":{t:"dmg",tg:"one",m:"Damage ต่อครั้ง",hits:"จำนวนครั้ง",rh:1},
+  "ไหว้ครูร่ายรำ":{t:"buff",tg:"self",stat:"agi",v:"AGI Bonus",d:"Duration",rh:1},
+  "หักงวงไอยรา":{t:"dmg",tg:"one",m:"Damage Multiplier",ign:"DEF Ignore",rh:1},
+  "ย่างสามขุม":{t:"pas",k:"eva",v:"Evasion Bonus"}, "กำลังช้างสาร":{t:"pas",k:"str",v:"STR Bonus"},
+  "มอญยันหลัก":{t:"dmg",tg:"one",m:"Damage Multiplier",cancel:"Cancel Charge Chance",rh:1},
+  "ปักษาแหวกรัง":{t:"parry",v:"Parry Chance",c:"Counter Damage"},
+  "แม่ไม้ครูมวย":{t:"pas",k:"rhy",v:"Rhythm Bonus ต่อแต้ม"}, "ใจนายขนมต้ม":{t:"pas",k:"rhyhit",v:"Proc Chance"},
+  "จระเข้ฟาดหาง":{t:"dmg",tg:"all",m:"Damage Multiplier",rh:1},
+  "ยกเขาพระสุเมรุ":{t:"dmg",tg:"one",m:"Damage Multiplier",st:"stun",sc:"Stun Chance"},
+  "หักคอเอราวัณ":{t:"finisher",v:"Damage ต่อจังหวะ"},
+  "เล็งศรจุดตาย":{t:"dmg",tg:"one",m:"Damage Multiplier",cb:"Crit Bonus"},
+  "วิชาพรานไพร":{t:"pas",k:"drop",v:"Drop Rate Bonus"}, "ย่องตามรอย":{t:"pas",k:"hunger",v:"Hunger Reduction"},
+  "ฝีเท้าเสือ":{t:"pas",k:"agi",v:"AGI Bonus"},
+  "ศรทะลวงเกราะ":{t:"dmg",tg:"one",m:"Damage Multiplier",ign:"DEF Ignore"},
+  "ศรฝนแสนห่า":{t:"dmg",tg:"all",m:"Damage Multiplier"},
+  "บ่วงบาศคล้องบาท":{t:"dmg",tg:"one",m:"Damage Multiplier",st:"bind",sc:"Bind Chance"},
+  "ศรอาบยาพิษ":{t:"dmg",tg:"one",m:"Damage Multiplier",st:"poison",sc:"Poison Chance"},
+  "หูไวตาไวพราน":{t:"pas",k:"pre",v:"Preemptive Bonus"}, "ตาเหยี่ยว":{t:"pas",k:"acc",v:"Party Accuracy"},
+  "ศรตรึงบาท":{t:"dmg",tg:"one",m:"Damage Multiplier",agiDown:"AGI Down"},
+  "ศรพรานบุญ":{t:"dmg",tg:"one",m:"Damage Multiplier",crit:1},
+  "ป้อนยาหอม":{t:"heal",tg:"ally",v:"Heal (% Max HP)"}, "ถอนพิษว่านยา":{t:"cleanse",tg:"ally"},
+  "ตำราพระโอสถพระนารายณ์":{t:"pas",k:"potion",v:"Potion Power"}, "ปราณบำรุง":{t:"pas",k:"mp",v:"Max MP Bonus"},
+  "พรมน้ำมนต์":{t:"heal",tg:"party",v:"Heal (% Max HP)"}, "เรียกขวัญ":{t:"revive",v:"HP หลังชุบ"},
+  "ผูกขวัญ":{t:"buff",tg:"party",stat:"def",v:"DEF Bonus",d:"Duration"},
+  "ยันต์กันคุณ":{t:"ward",tg:"ally",v:"จำนวนครั้งที่กัน"}, "สมาธิภาวนา":{t:"pas",k:"mpregen",v:"MP Regen ต่อเทิร์น"},
+  "หมอเดินทัพ":{t:"pas",k:"postheal",v:"Heal (% Max HP)"}, "ยาต้มบำรุงธาตุ":{t:"regen",tg:"ally",v:"Heal ต่อเทิร์น"},
+  "มหาพิกัดโอสถ":{t:"grand",v:"HP ของคนที่ถูกชุบ"},
+  "คาถาไฟกาฬ":{t:"dmg",tg:"one",m:"Damage Multiplier",mag:1,el:"fire"}, "คาถาวารีพิฆาต":{t:"dmg",tg:"one",m:"Damage Multiplier",mag:1,el:"water"},
+  "ตะกรุดโทน":{t:"pas",k:"mag",v:"Magic Damage Bonus"}, "วิชาอาคมแก่กล้า":{t:"pas",k:"tec",v:"TEC Bonus"},
+  "คาถาวาโยพัด":{t:"dmg",tg:"all",m:"Damage Multiplier",mag:1,el:"wind"},
+  "เพ่งกสิณ":{t:"analyze",v:"Weakness Damage Bonus"},
+  "มนต์สะกดวิญญาณ":{t:"status",tg:"one",st:"para",sc:"Paralyze Chance"},
+  "เป่ามนต์บังตา":{t:"status",tg:"all",st:"blind",sc:"Blind Chance"},
+  "ปล่อยคุณไสย":{t:"status",tg:"one",st:"poison",sc:"Poison Chance"},
+  "ชักประคำ":{t:"free"}, "สมาธิอาคม":{t:"pas",k:"mpred",v:"MP Cost Reduction"},
+  "มหาเพลิงประลัยกัลป์":{t:"dmg",tg:"all",m:"Damage Multiplier",mag:1,el:"best"},
+  "ตะปบเล็บเพชร":{t:"dmg",tg:"one",m:"Damage Multiplier"}, "หนังเหนียวอสูร":{t:"pas",k:"def",v:"DEF Bonus"},
+  "บันลือสีหนาท":{t:"debuff",v:"ATK Down",d:"Duration"}, "กายาอสูร":{t:"pas",k:"hp",v:"Max HP Bonus"},
+  "กระหน่ำอสุรา":{t:"dmg",tg:"one",m:"Damage ต่อครั้ง",hits3:"Hit Chance ต่อครั้ง"},
+  "โทสะเดือดดาล":{t:"buff",tg:"self",stat:"rage",v:"ATK Bonus สูงสุด",d:"Duration"},
+  "สัญชาตญาณนักล่า":{t:"pas",k:"pred",v:"Damage Bonus"},
+  "กระโจนขย้ำ":{t:"dmg",tg:"one",m:"Damage Multiplier",exec:"HP Threshold"},
+  "กลืนกิน":{t:"pas",k:"devour",v:"Hunger +"}, "เลือดหิมพานต์":{t:"pas",k:"blood",v:"Regen ต่อเทิร์น"},
+  "แยกเขี้ยวข่มขวัญ":{t:"scare",v:"Flee Chance"},
+  "คืนร่างแท้":{t:"buff",tg:"self",stat:"str",v:"STR Bonus",d:"Duration"},
+};
+
+const NAMES = {warrior:["ทองดี","บุญมา","จันทร์แก้ว","อินทร์","เรือง","Diego"],boxer:["ขนมต้ม","ปรก","ไชย","หมึก","สิงห์"],
+  hunter:["คำ","เพชร","Kenji","ป่า","บุญ"],medic:["พุด","ผิน","Rahim","จวน","เพ็ญ"],sorcerer:["ศรี","เทียน","ปู่ชาลี","Hassan","แสง"],beast:["สีหนาท","ปีกทอง","นาคา","กินรี","อาชา","คชา"]};
+const ORIG = ["ทหารคุ้มกัน","ลูกเรือสำเภา","ชาวต่างชาติในคณะ","ข้าราชการในคณะ"];
+
+const ITEMS = {
+  "ยาหอม":{price:30,desc:"ฟื้น HP 30% Max HP",use:"heal30"}, "ด้ายสายสิญจน์":{price:60,desc:"กลับค่ายทันที (นอกการต่อสู้) +1 ชม.",use:"return"},
+  "ข้าวตังสมุนไพร":{price:15,desc:"Hunger +20",use:"food20"}, "น้ำผึ้งป่า":{price:50,desc:"ฟื้น MP 25%",use:"mp25",unlock:{"สมุนไพรป่า":5}},
+  "ยาดม":{price:25,desc:"แก้ Sleep / Paralyze / Stun",use:"wake",unlock:{"ตะไคร่เรืองแสง":3}},
+  "ธูปไล่สัตว์":{price:40,desc:"ไม่มี Encounter 30 ก้าว",use:"incense",unlock:{"ขนกิหมี":5}},
+  "ระเบิดไฟ":{price:45,desc:"ดาเมจไฟ 80 ทุกศัตรู",use:"bombfire",unlock:{"ครีบกระหนก":3}},
+  "เนื้อทิศากรย่าง":{price:0,desc:"Hunger +40, HP +10%",use:"food40"},
+};
+const MATS = ["สมุนไพรป่า","ไม้บิด","เศษหิน","ตะไคร่เรืองแสง"];
+const SELL_PRICE = m => /งาโลโต|หงอน|จมูก|หาง|แผงคอ|สัน|ทอง/.test(m) ? 40 : (MATS.includes(m) ? 5 : 10);
+
+/* ================================================================ STATE */
+let S = null;
+function newState(){
+  return { day:1, min:6*60, gold:300, roster:[], party:[], inv:{"ยาหอม":3,"ข้าวตังสมุนไพร":2,"ด้ายสายสิญจน์":1}, mats:{},
+    sold:{}, unlocked:{}, hunger:C.MAX_HUNGER, screen:"title", candDay:0, cands:[], beastUnlocked:false,
+    map:null, mission:0, jiro:false, bossRoomSeen:false, quests:[], questDay:0, kills:{}, bestiary:{}, art:false,
+    incense:0, chapterDone:false, msgs:[] };
+}
+function makeChar(cls, lv){
+  const c = CLS[cls], v = {};
+  for (const k of G.stats) v[k] = +(c.base[k] * rnd(0.9, 1.1)).toFixed(1);
+  const ch = { id:Math.random().toString(36).slice(2,8), cls, name:pick(NAMES[cls]), origin: cls==="beast" ? "สัตว์หิมพานต์ ("+pick(G.bloodlines).name+")" : pick(ORIG),
+    lv:1, exp:1, base:v, ranks:{}, wpn:0, arm:0, hp:0, mp:0, st:{}, buffs:{}, rhythm:0 };
+  ch.sp = C.SP_START; setLevel(ch, lv || 1); ch.hp = maxHP(ch); ch.mp = maxMP(ch); return ch;
+}
+function setLevel(ch, lv){ ch.lv = clamp(lv,1,C.LEVEL_CAP); ch.exp = ch.lv ** 3;
+  const spent = Object.values(ch.ranks).reduce((a,b)=>a+b,0); ch.sp = C.SP_START + (ch.lv-1) - spent; }
+function skillsOf(ch){ return CLS[ch.cls].skills; }
+function rankOf(ch, name){ return ch.ranks[name] || 0; }
+function passive(ch, k){ let tot=0; for (const s of skillsOf(ch)){ const f=FX[s.name]; const r=rankOf(ch,s.name);
+  if (f && f.t==="pas" && f.k===k && r>0) tot += num(s.ranks[r-1][f.v]); } return tot; }
+function rawStat(ch, k){ const c = CLS[ch.cls]; return ch.base[k] + c.growth[k] * (ch.lv - 1); }
+function stat(ch, k){ let v = rawStat(ch,k);
+  if (k==="STR") v *= 1 + passive(ch,"str")/100 + (ch.buffs.str? ch.buffs.str.v:0);
+  if (k==="AGI") v *= 1 + passive(ch,"agi")/100 + (ch.buffs.agi? ch.buffs.agi.v:0);
+  if (k==="TEC") v *= 1 + passive(ch,"tec")/100;
+  if (k==="AGI" && S && S.inv["เข็มทิศเงิน"]) v += 3;
+  return Math.round(v); }
+function maxHP(ch){ return Math.round(rawStat(ch,"HP") * (1 + passive(ch,"hp")/100)); }
+function maxMP(ch){ return Math.round(rawStat(ch,"MP") * (1 + passive(ch,"mp")/100)); }
+function weaponATK(ch){ const c = CLS[ch.cls], b = G.weaponTier["1"][ch.wpn]; return b * c.weaponMult.atk * (1 + passive(ch,"atk")/100); }
+function spellPow(ch){ const c = CLS[ch.cls], b = G.weaponTier["1"][ch.wpn]; return b * c.weaponMult.spell; }
+function armorDEF(ch){ return G.armorTier["1"][ch.arm] * CLS[ch.cls].armorMult; }
+function pdef(ch){ let d = armorDEF(ch) + stat(ch,"VIT")*2; d *= 1 + passive(ch,"def")/100 + (ch.buffs.def? ch.buffs.def.v:0); return d; }
+function mdef(ch){ return armorDEF(ch)*0.5 + stat(ch,"TEC")*1.5; }
+const alive = ch => ch.hp > 0;
+const partyChars = () => S.party.map(id => S.roster.find(c => c.id===id)).filter(Boolean);
+
+/* ================================================================ TIME */
+const hhmm = m => { const h = Math.floor(m/60)%24, mm = Math.floor(m%60); return String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0"); };
+const isNight = () => { const h = Math.floor(S.min/60)%24; return h>=18 || h<6; };
+function addMinutes(m){
+  S.min += m;
+  while (S.min >= 24*60){ S.min -= 24*60; S.day++; onNewDay(); }
+  if (S.day >= C.DAY_DEADLINE && S.min >= 6*60 && !S.chapterDone && S.screen!=="combat" && !bossForced){ bossForced = true; startBoss(true); }
+}
+let bossForced = false;
+function onNewDay(){ if (S.day % 1 === 0) { S.candDay = 0; } if (S.map) S.map.gather.forEach(g => g.left = 3);
+  if (S.day===24||S.day===28||S.day===30) toast(`หอบันทึก: เหลืออีก ${31-S.day} วันก่อนหมอกลง`); }
+function sleep(){ const target = 6*60; let add = (24*60 - S.min) + target; if (S.min < target) add = target - S.min; addMinutes(add); }
+
+/* ================================================================ UI BASICS */
+let toastT = 0;
+function toast(t){ const d = document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 2200); }
+function overlay(html){ $("#ov").innerHTML = html ? `<div class="overlay"><div class="panel orn">${html}</div></div>` : ""; }
+function topbar(){
+  const hpct = S.hunger / C.MAX_HUNGER * 100;
+  $("#topbar").innerHTML = `<b class="gold" style="font-family:var(--display)">หิมพานต์ · ${esc(CH.name)}</b>
+   <span>วัน <b>${S.day}</b>/31</span><span>${isNight()?"🌙":"☀"} ${hhmm(S.min)}</span>
+   <span>Hunger <span class="meter"><i style="width:${hpct}%;background:${hpct<20?'var(--red)':'var(--green)'}"></i></span> ${Math.ceil(S.hunger)}</span>
+   <span class="gold">${S.gold} Gold</span><span class="grow"></span>
+   <button id="bArt" class="${S.art?'on':''}">โหมดอาร์ต</button><button id="bDbg">Debug</button>`;
+  $("#bArt").onclick = () => { S.art = !S.art; document.body.classList.toggle("art", S.art); topbar(); };
+  $("#bDbg").onclick = debugPanel;
+}
+const art = t => `<span class="artlabel">[Art: ${esc(t)}]</span>`;
+function go(screen){ S.screen = screen; render(); }
+function render(){ topbar(); ({title:renderTitle,camp:renderCamp,party:renderParty,dungeon:renderDungeon,combat:renderCombat,end:renderEnd})[S.screen](); }
+
+/* ================================================================ TITLE / PROLOGUE */
+function renderTitle(){
+  if (!S.cands.length) S.cands = ["warrior","boxer","hunter","medic","sorcerer"].map(k => makeChar(k,1));
+  $("#screen").innerHTML = `<div class="panel orn"><h2>ฉาก 0 — ท่าน้ำหน้าพระนคร</h2>
+   <p>ท่านคือ <b>หัวหน้าหน่วยคุ้มกัน</b> ของคณะทูตอโยธยา นายทองอินนำทหารมาให้คัดเลือก เลือก 3 คน (ห้ามอาชีพซ้ำ) เพื่อคุ้มกันคณะ</p>
+   ${art("ภาพเปิด: ท่าเรือกรุงศรี สำเภาจีน เรือฝรั่ง ขบวนเรือพระราชพิธี")}
+   <div class="grid g4" id="pick"></div>
+   <p class="small">หลังจากนี้: กลางทะเล → ม่านหมอก → สำเภาเกยตื้นกลางป่าหิมพานต์ (ตัดฉาก Prologue 1–4 ใน Prototype)</p>
+   <button id="startB" disabled>ออกเดินทาง</button></div>`;
+  const sel = new Set();
+  const draw = () => { $("#pick").innerHTML = S.cands.map((c,i)=>`<button data-i="${i}" class="${sel.has(i)?'on':''}" style="text-align:left">
+     <b>${esc(c.name)}</b> — ${CLS[c.cls].th}<br><span class="small">${esc(c.origin)} · HP ${maxHP(c)} STR ${stat(c,"STR")} AGI ${stat(c,"AGI")} TEC ${stat(c,"TEC")}</span></button>`).join("");
+    document.querySelectorAll("#pick button").forEach(b => b.onclick = () => { const i=+b.dataset.i; sel.has(i)?sel.delete(i):(sel.size<3&&sel.add(i)); draw(); });
+    $("#startB").disabled = sel.size !== 3; };
+  draw();
+  $("#startB").onclick = () => { S.roster = [...sel].map(i=>S.cands[i]); S.party = S.roster.map(c=>c.id); S.cands = [];
+    S.map = buildMap(); overlay(`<h2>ฉาก 3 — ตื่นกลางป่า</h2><p>สำเภาศรีอโยธยาเกยอยู่ระหว่างต้นไม้ยักษ์ ไม่มีทะเลให้เห็น ฝูงกิหมีลากลูกเรือหายเข้าป่า…</p>
+     <p>ราชทูตสั่งตั้งค่ายรอบเรือ ขุนวรวาทีมอบสมุดไทยให้วาดแผนที่ทุกก้าว</p>${art("CG: ซากสำเภาเกยตื้นกลางป่า แสงลอดใบไม้")}<button id="okP">ตั้งค่าย</button>`);
+    $("#okP").onclick = () => { overlay(""); doSave(true); go("camp"); }; };
+}
+
+/* ================================================================ CAMP */
+const NPCS = [
+  {id:"envoy",name:"พระยาศรีธรรมทูต",role:"ราชทูต · ภารกิจหลัก",ini:"ศธ",art:"ชายวัย 50 ลอมพอกทรงสูง ถือผอบนิลรัตน์"},
+  {id:"scribe",name:"ขุนวรวาที",role:"ตรีทูต · เควสแผนที่ / สมุดสัตว์",ini:"วว",art:"ชายผอม 30 ปี แว่นฝรั่ง สมุดไทยดำ"},
+  {id:"recruit",name:"หมื่นราชอาสา (นายทองอิน)",role:"ทำเนียบอาสา · คัดคน",ini:"ทอ",art:"ร่างหนา สักยันต์ ผ้าโพกแดง ขากะเผลก"},
+  {id:"doctor",name:"หมอหลวงพุ่ม + จันทร์",role:"เรือนหมอหลวง · รักษา",ini:"พม",art:"ชายชราผ้าขาว + หญิงสาวผมจุกตะกร้าสมุนไพร"},
+  {id:"smith",name:"นายช่างมั่น",role:"โรงตีเหล็ก · คราฟ",ini:"มั่น",art:"แขนใหญ่ รอยไหม้ ผ้าขาวม้าคาดเอว"},
+  {id:"shop",name:"เถ้าแก่ฮง",role:"ห้างเถ้าแก่ฮง · ซื้อขาย",ini:"ฮง",art:"ชายจีนอ้วนท้วน หนวดยาว ลูกคิดห้อยเอว"},
+  {id:"cook",name:"ยายเนียม",role:"ครัวไฟ · อาหาร / เควสย่อย",ini:"เนียม",art:"หญิงชรา โจงกระเบน กินหมาก ทัพพีใหญ่"},
+  {id:"monk",name:"หลวงตาทอง",role:"ศาลาพระ · นอน / Save / Rest",ini:"ทอง",art:"พระชรา พัดใบตาล ลูกประคำ"},
+];
+const MISSIONS = [
+  {name:"ทางออกที่ไม่มีอยู่จริง", goal:"เดินตามลำน้ำไปให้ถึงขอบหมอกฝั่งตะวันออกของชั้น 1 แล้วกลับมารายงาน", key:"mist"},
+  {name:"ช่างที่หายไป", goal:"ตามหาจิโร่ที่หลงอยู่ในป่า (มีเครื่องหมาย ! บนแผนที่จริง)", key:"jiro"},
+  {name:"ราชสาส์นต้องปลอดภัย", goal:"ไปให้ถึงห้องเจ้าป่าที่ปลายชั้น แล้วท้าบอสก่อนกำหนดได้", key:"boss"},
+];
+function renderCamp(){
+  bossForced = S.day >= 31 ? bossForced : false;
+  $("#screen").innerHTML = `<div class="panel"><h2>ค่ายสำเภาเกยตื้น</h2>
+   ${art("Camp BG: ซากสำเภาศรีอโยธยาเอียงกลางรากไทรยักษ์ กระโจมผ้าใบ กองไฟกลางค่าย")}
+   <div class="grid g2" id="npcs"></div>
+   <div class="row" style="margin-top:8px"><button id="toParty">ปาร์ตี้ / สกิล (Esc)</button><button id="toDun" class="on">เข้าป่า</button></div></div>`;
+  $("#npcs").innerHTML = NPCS.map(n => `<button class="npc" data-n="${n.id}"><span class="portrait">${n.ini}</span>
+     <span><b>${n.name}</b><br><span class="small">${n.role}</span><br>${art(n.art)}</span></button>`).join("");
+  document.querySelectorAll("[data-n]").forEach(b => b.onclick = () => npcPanel(b.dataset.n));
+  $("#toParty").onclick = () => go("party");
+  $("#toDun").onclick = () => { if (!partyChars().some(alive)) { toast("ปาร์ตี้ไม่มีคนสู้ได้"); return; }
+    if (S.party.length < 1) { toast("จัดปาร์ตี้ก่อน"); return; } enterDungeon(); };
+}
+function npcHead(n, line){ return `<div class="row" style="flex-wrap:nowrap"><span class="portrait">${n.ini}</span><div><h2 style="margin:0">${n.name}</h2>
+  <div class="small">${n.role}</div><div>"${esc(line)}"</div>${art(n.art)}</div></div><hr style="border-color:var(--line)">`; }
+const closeBtn = `<div class="row" style="margin-top:8px"><button id="cls">ปิด</button></div>`;
+function bindClose(){ const b = $("#cls"); if (b) b.onclick = () => { overlay(""); render(); }; }
+function npcPanel(id){
+  const n = NPCS.find(x=>x.id===id); let h = "";
+  if (id==="envoy"){
+    const m = MISSIONS[S.mission];
+    h = npcHead(n, S.mission>=3 ? "ราชสาส์นต้องถึงมือผู้รับ ไม่ว่าเราจะอยู่โลกไหน" : "งานของท่านคือพาพวกเรากลับบ้าน งานของข้าคือทำให้มีบ้านให้กลับไป");
+    h += m ? `<h3>ภารกิจหลัก ${S.mission+1}: ${m.name}</h3><p>${m.goal}</p><p class="small">สถานะ: ${missionDone(m.key)?'<b class="green">สำเร็จ — ส่งรายงานได้</b>':'กำลังดำเนินการ'}</p>
+       <button id="rep" ${missionDone(m.key)?'':'disabled'}>ส่งรายงาน</button>` : `<p>ภารกิจหลักของ Chapter 1 ครบแล้ว ห้องเจ้าป่าเปิดให้ท้าบอสก่อนกำหนด</p>`;
+  } else if (id==="scribe"){
+    const c = mapCompletion();
+    h = npcHead(n, "ทุกก้าวที่ท่านเดิน ถ้าไม่จดไว้ ก็เท่ากับไม่เคยเดิน");
+    h += `<h3>แผนที่ชั้น 1: ${c}%</h3><p class="small">Completion = (พื้นที่วาดถูก + ผนังที่วาดถูก) ÷ (พื้นทั้งหมด + ผนังทั้งหมด)</p>
+      <p>เควส "แผนที่ฉบับแรก": วาดครบ 80% → 300 Gold + เข็มทิศเงิน (AGI +3)</p>
+      <button id="mq" ${c>=80 && !S.inv["เข็มทิศเงิน"]?'':'disabled'}>ส่งเควสแผนที่</button>
+      <h3>สมุดสัตว์</h3><div class="tw"><table><tr><th>สัตว์</th><th>ล้ม</th><th>ไฟ</th><th>น้ำ</th><th>ลม</th><th>กาย</th></tr>${MON.map(m=>{const b=S.bestiary[m.name]||{};
+       return `<tr><td>${m.name}</td><td>${S.kills[m.name]||0}</td>${["fire","water","wind","phys"].map(e=>`<td>${b[e]?m.elem[e]:'?'}</td>`).join("")}</tr>`}).join("")}</table></div>`;
+  } else if (id==="recruit"){
+    if (S.candDay !== S.day){ S.candDay = S.day; const pool = ["warrior","boxer","hunter","medic","sorcerer"].concat(S.beastUnlocked?["beast"]:[]);
+      S.cands = pool.sort(()=>Math.random()-.5).slice(0,4).map(k => makeChar(k, CH.lv[0])); }
+    h = npcHead(n, "ชื่อ อายุ ทำอะไรเป็น? ไม่ต้องบอกว่ากลัว ทุกคนที่นี่กลัวทั้งนั้น");
+    h += `<h3>ผู้สมัครวันนี้ (จ้าง 100 Gold, +1 ชม.) · สังกัด ${S.roster.length}/${C.ROSTER_MAX}</h3><div class="grid g2">${S.cands.map((c,i)=>`<div class="pm"><b>${c.name}</b> ${CLS[c.cls].th}<br>
+      <span class="small">${esc(c.origin)}</span><br>HP ${maxHP(c)} · STR ${stat(c,"STR")} · VIT ${stat(c,"VIT")} · AGI ${stat(c,"AGI")} · TEC ${stat(c,"TEC")} · LUK ${stat(c,"LUK")}<br>
+      <i class="small">${advice(c)}</i><br><button data-hire="${i}">จ้าง</button></div>`).join("")||'<p class="small">วันนี้ไม่มีผู้สมัครแล้ว</p>'}</div>
+      <h3>จัดปาร์ตี้ (3 คน ห้ามอาชีพซ้ำ)</h3><div class="grid g2">${S.roster.map(c=>`<div class="pm ${S.party.includes(c.id)?'act':''}"><b>${c.name}</b> ${CLS[c.cls].th} Lv${c.lv}
+      <br><span class="small">HP ${c.hp}/${maxHP(c)}</span><br><button data-tog="${c.id}">${S.party.includes(c.id)?'ออกจากปาร์ตี้':'เข้าปาร์ตี้'}</button>
+      <button data-fire="${c.id}">ปลด</button></div>`).join("")}</div>`;
+  } else if (id==="doctor"){
+    const cost = healCost();
+    h = npcHead(n, "ธาตุไฟในตัวเขากำเริบ พักเสียสามชั่วยาม แล้วค่อยไปหาเรื่องกับป่าใหม่");
+    h += `<p>รักษาทั้งสังกัด: <b>${cost} Gold</b> (HP ที่หาย × 0.1 + MP ที่หาย × 0.3) · +1 ชม.</p><button id="heal" ${cost>0&&S.gold>=cost?'':'disabled'}>รักษา</button>
+      <h3>เรียกขวัญ (20 × Lv Gold, +3 ชม.)</h3>${S.roster.filter(c=>!alive(c)).map(c=>`<button data-rev="${c.id}">${c.name} (${20*c.lv} G)</button>`).join(" ")||'<p class="small">ไม่มีผู้เสียชีวิต</p>'}
+      <h3>จันทร์ปรุงยา</h3><button id="brew" ${(S.mats["สมุนไพรป่า"]||0)>=2?'':'disabled'}>ยาหอม ×1 (สมุนไพรป่า ×2, +0.5 ชม.)</button>`;
+  } else if (id==="smith"){
+    h = npcHead(n, "งาโลโต? เอามาซี่ ข้าไม่เคยตีงา แต่ก็ไม่เคยตีอะไรไม่สำเร็จ");
+    h += `<p class="small">Tier ร้าน = ATK ${G.weaponTier["1"][0]} / DEF ${G.armorTier["1"][0]} · Tier คราฟดีสุด Chapter 1 = ATK ${G.weaponTier["1"][1]} / DEF ${G.armorTier["1"][1]} (ใช้งาโลโตจากสัตว์ชั้นสูง)</p>
+      <div class="tw"><table><tr><th>ตัวละคร</th><th>อาวุธ</th><th>ชุด</th><th></th></tr>${S.roster.map(c=>`<tr><td>${c.name} (${CLS[c.cls].th})</td>
+      <td>ATK ${Math.round(weaponATK(c))}${spellPow(c)?' / SP '+Math.round(spellPow(c)):''}</td><td>DEF ${Math.round(armorDEF(c))}</td>
+      <td><button data-cw="${c.id}" ${c.wpn?'disabled':''}>ตีอาวุธงาโลโต</button> <button data-ca="${c.id}" ${c.arm?'disabled':''}>ตีเกราะ</button></td></tr>`).join("")}</table></div>
+      <p class="small">อาวุธ: งาโลโต ×1 + ขนกิหมี ×2 + 150 Gold · ชุด: งาโลโต ×1 + หนังติณสีห์ ×2 + 120 Gold · +2 ชม. ต่อชิ้น</p>
+      ${S.jiro?'<p class="green">จิโร่กลับมาแล้ว: (Prototype) เครื่องรางยังไม่ได้ทำ</p>':'<p class="small">จิโร่ยังหลงอยู่ในป่า (ภารกิจหลัก 2)</p>'}
+      <p class="small">วัตถุดิบ: ${Object.entries(S.mats).map(([k,v])=>k+" ×"+v).join(", ")||"-"}</p>`;
+  } else if (id==="shop"){
+    h = npcHead(n, "ซื้อสองแถมหนึ่ง… ไม่ใช่ ซื้อสองจ่ายสอง แต่ยิ้มให้ฟรี");
+    h += `<h3>ซื้อ</h3><div class="tw"><table><tr><th>สินค้า</th><th>ผล</th><th>ราคา</th><th>มี</th><th></th></tr>${Object.entries(ITEMS).filter(([k,v])=>v.price>0).map(([k,v])=>{
+        const ok = !v.unlock || S.unlocked[k]; return `<tr><td>${ok?k:'???'}</td><td>${ok?v.desc:'ขาย '+Object.entries(v.unlock).map(([a,b])=>a+' ×'+b+' ('+(S.sold[a]||0)+')').join(', ')}</td>
+        <td>${v.price}</td><td>${S.inv[k]||0}</td><td><button data-buy="${k}" ${ok&&S.gold>=v.price?'':'disabled'}>ซื้อ</button></td></tr>`}).join("")}</table></div>
+      <h3>ขายวัตถุดิบ (ปลดล็อกสินค้าแบบ Etrian Odyssey)</h3>${Object.entries(S.mats).filter(([k,v])=>v>0).map(([k,v])=>`<button data-sell="${k}">${k} ×${v} (${SELL_PRICE(k)} G)</button>`).join(" ")||'<p class="small">ไม่มีวัตถุดิบ</p>'}`;
+  } else if (id==="cook"){
+    ensureQuests();
+    h = npcHead(n, "กินก่อน แล้วค่อยไปตาย… ไม่ใช่! กินแล้วกลับมาให้ครบทุกคน ได้ยินไหม");
+    h += `<h3>ทำอาหาร (+0.5 ชม.)</h3><button id="cookM" ${(S.mats["เนื้อทิศากร"]||0)>=1&&(S.mats["สมุนไพรป่า"]||0)>=1?'':'disabled'}>เนื้อทิศากรย่าง (เนื้อทิศากร 1 + สมุนไพรป่า 1)</button>
+      <h3>เควสย่อย</h3>${S.quests.map((q,i)=>`<div class="pm"><b>${q.name}</b> — ${q.goal}<br><span class="small">รางวัล: ${q.reward} · ${q.done?'ส่งแล้ว':questReady(q)?'<b class="green">พร้อมส่ง</b>':'ยังไม่ครบ'}</span><br>
+      <button data-q="${i}" ${!q.done&&questReady(q)?'':'disabled'}>ส่งเควส</button></div>`).join("")}
+      <p class="small">ข่าวลือ: "${pick(["ลูกเรือว่าเห็นหีบไม้ใกล้ต้นไทรฝั่งเหนือ","ตอนกลางคืนสัตว์ออกเยอะ แต่ของดีก็เยอะ","ไอ้สัตว์มีงวงมันเดินวนอยู่ตรงทางกลาง อย่าไปขวาง"])}"</p>`;
+  } else if (id==="monk"){
+    h = npcHead(n, "นอนเถิดโยม ป่ามันไม่หนีไปไหน");
+    h += `<button id="slp">นอนพักถึง 06:00 (ฟื้น HP/MP เต็ม ไม่ชุบชีวิต) + บันทึกเกม</button>
+      <h3>พักฟื้น (Rest): ลด 5 เลเวล คืน SP ทั้งหมด +1 วัน (Lv 15+)</h3>${S.roster.map(c=>`<button data-rest="${c.id}" ${c.lv>=15?'':'disabled'}>${c.name} Lv${c.lv}</button>`).join(" ")}`;
+  }
+  overlay(h + closeBtn); bindClose(); bindNpc(id);
+}
+function bindNpc(id){
+  const on = (sel, fn) => document.querySelectorAll(sel).forEach(b => b.onclick = () => { fn(b); });
+  on("#rep", () => { const m = MISSIONS[S.mission]; S.mission++; if (m.key==="jiro") S.jiro = true;
+    toast("ภารกิจหลักสำเร็จ: "+m.name); npcPanel("envoy"); });
+  on("#mq", () => { S.gold += 300; S.inv["เข็มทิศเงิน"] = 1; toast("ได้ 300 Gold + เข็มทิศเงิน"); npcPanel("scribe"); });
+  on("[data-hire]", b => { const c = S.cands[+b.dataset.hire]; if (S.roster.length>=C.ROSTER_MAX) return toast("สังกัดเต็ม 10 คน");
+    if (S.gold < 100) return toast("Gold ไม่พอ"); S.gold -= 100; S.roster.push(c); S.cands.splice(+b.dataset.hire,1); addMinutes(60); npcPanel("recruit"); });
+  on("[data-tog]", b => { const id = b.dataset.tog; if (S.party.includes(id)) S.party = S.party.filter(x=>x!==id);
+    else { const c = S.roster.find(x=>x.id===id); if (S.party.length>=3) return toast("ปาร์ตี้มีได้ 3 คน");
+      if (partyChars().some(p=>p.cls===c.cls)) return toast("ห้ามอาชีพซ้ำในปาร์ตี้"); S.party.push(id); } npcPanel("recruit"); });
+  on("[data-fire]", b => { const id = b.dataset.fire; if (S.roster.length<=1) return; S.roster = S.roster.filter(x=>x.id!==id); S.party = S.party.filter(x=>x!==id); npcPanel("recruit"); });
+  on("#heal", () => { const cost = healCost(); S.gold -= cost; S.roster.filter(alive).forEach(c=>{c.hp=maxHP(c);c.mp=maxMP(c);c.st={};}); addMinutes(60); npcPanel("doctor"); });
+  on("[data-rev]", b => { const c = S.roster.find(x=>x.id===b.dataset.rev); if (S.gold<20*c.lv) return toast("Gold ไม่พอ"); S.gold -= 20*c.lv; c.hp = maxHP(c); addMinutes(180); npcPanel("doctor"); });
+  on("#brew", () => { S.mats["สมุนไพรป่า"] -= 2; S.inv["ยาหอม"] = (S.inv["ยาหอม"]||0)+1; addMinutes(30); npcPanel("doctor"); });
+  on("[data-cw]", b => craft(b.dataset.cw, "wpn")); on("[data-ca]", b => craft(b.dataset.ca, "arm"));
+  on("[data-buy]", b => { const k = b.dataset.buy; S.gold -= ITEMS[k].price; S.inv[k] = (S.inv[k]||0)+1; npcPanel("shop"); });
+  on("[data-sell]", b => { const k = b.dataset.sell; S.mats[k]--; S.gold += SELL_PRICE(k); S.sold[k] = (S.sold[k]||0)+1;
+    for (const [it,v] of Object.entries(ITEMS)) if (v.unlock && !S.unlocked[it] && Object.entries(v.unlock).every(([a,n])=>(S.sold[a]||0)>=n)) { S.unlocked[it]=1; toast("พรุ่งนี้มาดู มีของดีให้: "+it); }
+    npcPanel("shop"); });
+  on("#cookM", () => { S.mats["เนื้อทิศากร"]--; S.mats["สมุนไพรป่า"]--; S.inv["เนื้อทิศากรย่าง"] = (S.inv["เนื้อทิศากรย่าง"]||0)+1; addMinutes(30); npcPanel("cook"); });
+  on("[data-q]", b => { const q = S.quests[+b.dataset.q]; q.done = true; if (q.mat) S.mats[q.mat] -= q.n; S.gold += q.gold; if (q.bonus) S.inv[q.bonus] = (S.inv[q.bonus]||0)+2; toast("ส่งเควสแล้ว +"+q.gold+" Gold"); npcPanel("cook"); });
+  on("#slp", () => { sleep(); S.roster.filter(alive).forEach(c=>{c.hp=maxHP(c);c.mp=maxMP(c);c.st={};}); S.hunger = C.MAX_HUNGER; doSave(); toast("บันทึกเกมแล้ว · วันที่ "+S.day); npcPanel("monk"); });
+  on("[data-rest]", b => { const c = S.roster.find(x=>x.id===b.dataset.rest); c.ranks = {}; setLevel(c, c.lv-5); c.hp = Math.min(c.hp, maxHP(c)); addMinutes(24*60); toast(c.name+" พักฟื้น → Lv"+c.lv+" SP "+c.sp); npcPanel("monk"); });
+}
+function advice(c){ const keys=["STR","VIT","AGI","TEC","LUK"]; let hi=keys[0], lo=keys[0], rh=-9, rl=9;
+  for (const k of keys){ const r = c.base[k]/CLS[c.cls].base[k]; if (r>rh){rh=r;hi=k} if (r<rl){rl=r;lo=k} }
+  const word = {STR:"แรงดี",VIT:"ทนทาน",AGI:"ว่องไว",TEC:"หัวไว",LUK:"ดวงดี"}, weak = {STR:"แรงน้อย",VIT:"บอบบาง",AGI:"เชื่องช้า",TEC:"ไม่ค่อยรู้วิชา",LUK:"ดวงซวย"};
+  return `นายทองอิน: "คนนี้${word[hi]} แต่${weak[lo]}"`; }
+function healCost(){ return Math.ceil(S.roster.filter(alive).reduce((a,c)=>a+(maxHP(c)-c.hp)*0.1+(maxMP(c)-c.mp)*0.3,0)); }
+function craft(id, slot){ const c = S.roster.find(x=>x.id===id); const need = slot==="wpn" ? {"งาโลโต":1,"ขนกิหมี":2} : {"งาโลโต":1,"หนังติณสีห์":2}; const g = slot==="wpn"?150:120;
+  if (!Object.entries(need).every(([k,n])=>(S.mats[k]||0)>=n) || S.gold<g) return toast("วัตถุดิบหรือ Gold ไม่พอ");
+  for (const [k,n] of Object.entries(need)) S.mats[k]-=n; S.gold -= g; c[slot] = 1; addMinutes(120); toast("นายช่างมั่น: …ดี"); npcPanel("smith"); }
+function ensureQuests(){ if (S.questDay) return; S.questDay = 1;
+  S.quests = [{name:"แกงทิศากรทั้งค่าย",goal:"ส่งเนื้อทิศากร 3 ชิ้น",mat:"เนื้อทิศากร",n:3,gold:120,reward:"120 Gold"},
+              {name:"ไอ้หมาขนฟูขโมยไก่",goal:"ล้มกิหมี 8 ตัว",kill:"กิหมี",n:8,gold:150,bonus:"ธูปไล่สัตว์",reward:"150 Gold + ธูปไล่สัตว์ ×2"}]; }
+function questReady(q){ return q.mat ? (S.mats[q.mat]||0)>=q.n : (S.kills[q.kill]||0)>=q.n; }
+function missionDone(k){ if (!S.map) return false; return k==="mist" ? S.map.flags.mist : k==="jiro" ? S.map.flags.jiro : S.map.flags.boss; }
+
+/* ================================================================ PARTY / SKILLS */
+let selChar = null, selSkill = null;
+function renderParty(){
+  const list = S.roster; if (!selChar || !list.find(c=>c.id===selChar)) selChar = list[0].id;
+  const c = list.find(x=>x.id===selChar), cl = CLS[c.cls];
+  const tierLv = {1:1,2:10,3:25,4:40};
+  const rows = G.stats.map(k=>`<tr><td>${k}</td><td>${k==="HP"?maxHP(c):k==="MP"?maxMP(c):stat(c,k)}</td><td class="small">+${cl.growth[k]}/Lv</td></tr>`).join("");
+  const sks = cl.skills.map((s,i)=>{ const r = rankOf(c,s.name), max = s.tier===4?C.ULT_RANK_MAX:C.SKILL_RANK_MAX, ok = canRank(c,s);
+    return `<div class="sk ${c.lv<tierLv[s.tier]?'lock':''}"><span><span class="tag">${s.tier===4?'Ult':'T'+s.tier}</span><b>${s.name}</b> <span class="small">${s.kind}${FX[s.name]?'':' (ยังไม่จำลอง)'}</span></span>
+      <span>${r}/${max} <button data-sk="${i}">ดู</button> <button data-up="${i}" ${ok?'':'disabled'}>+</button></span></div>`; }).join("");
+  let det = "";
+  if (selSkill!=null){ const s = cl.skills[selSkill]; const r = rankOf(c,s.name);
+    det = `<h3>${s.name} (${s.en})</h3><p class="small">${esc(s.desc)}<br>Prerequisite: ${esc(s.prereq)}</p><div class="tw"><table><tr><th>Rank</th>${s.columns.map(x=>`<th>${x}</th>`).join("")}<th>MP</th></tr>
+      ${s.ranks.map((rk,i)=>`<tr style="${i+1===r?'background:#3a3016':''}"><td>${i+1}</td>${s.columns.map(x=>`<td>${rk[x]}</td>`).join("")}<td>${s.mp[i]}</td></tr>`).join("")}</table></div>
+      <p class="small">สูตร: ${esc(s.formula)}</p>`; }
+  $("#screen").innerHTML = `<div class="grid g2"><div class="panel"><h2>สังกัด</h2>${list.map(x=>`<button data-c="${x.id}" class="${x.id===selChar?'on':''}" style="margin:2px">${x.name} · ${CLS[x.cls].th} Lv${x.lv}</button>`).join("")}
+    <h3 style="margin-top:10px">${c.name} — ${cl.th} Lv${c.lv} <span class="small">EXP ${c.exp}/${(c.lv+1)**3}</span></h3>
+    <p class="small">${esc(cl.role)} · ${esc(c.origin)} · HP ${c.hp}/${maxHP(c)} · MP ${c.mp}/${maxMP(c)}</p>${art(cl.th+" : "+cl.weapon+" / "+cl.armor)}
+    <table>${rows}</table><p class="small">Stat โตเองตามอาชีพ (แบบ Etrian Odyssey) · Weapon ATK ${Math.round(weaponATK(c))} · DEF ${Math.round(pdef(c))} · MDEF ${Math.round(mdef(c))}</p>
+    <button id="back">กลับ</button></div>
+    <div class="panel"><h2>Skill Tree <span class="small">SP เหลือ ${c.sp}</span></h2>${sks}${det}</div></div>`;
+  document.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{selChar=b.dataset.c;selSkill=null;renderParty();});
+  document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>{selSkill=+b.dataset.sk;renderParty();});
+  document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const s=cl.skills[+b.dataset.up]; c.ranks[s.name]=rankOf(c,s.name)+1; c.sp--; selSkill=+b.dataset.up; renderParty();});
+  $("#back").onclick = () => go(S.map && S.map.inside ? "dungeon" : "camp");
+}
+function canRank(c, s){ const tierLv = {1:1,2:10,3:25,4:40}; const max = s.tier===4?C.ULT_RANK_MAX:C.SKILL_RANK_MAX;
+  if (c.sp<=0 || c.lv<tierLv[s.tier] || rankOf(c,s.name)>=max) return false;
+  const m = /^(.+?) Rank (\d+)/.exec(s.prereq.replace(/^Lv\d+ \+ /,"")); if (m && s.prereq!=="-"){ const names = m[1].split(",").map(x=>x.trim()); if (!names.every(nm=>rankOf(c,nm)>=+m[2])) return false; }
+  return true; }
+
+/* ================================================================ MAP (data) */
+// 20x20 cells. wallN[y][x] = wall on north edge of cell, wallW[y][x] = wall on west edge. rock[y][x] = solid.
+function seeded(seed){ return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function buildMap(){
+  const N = 20, R = seeded(4231);
+  const rock = Array.from({length:N},()=>Array(N).fill(false));
+  [[6,6,3,3],[12,3,2,4],[3,13,4,2],[13,12,3,3]].forEach(([x,y,w,h])=>{for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)rock[j][i]=true;});
+  const wallN = Array.from({length:N+1},()=>Array(N).fill(true)), wallW = Array.from({length:N},()=>Array(N+1).fill(true));
+  const seen = Array.from({length:N},()=>Array(N).fill(false));
+  const stack = [[1,18]], vis = Array.from({length:N},()=>Array(N).fill(false)); vis[18][1] = true;
+  const D = [[0,-1],[1,0],[0,1],[-1,0]];
+  while (stack.length){ const [x,y] = stack[stack.length-1];
+    const nb = D.map(([dx,dy],i)=>[x+dx,y+dy,i]).filter(([a,b])=>a>=0&&b>=0&&a<N&&b<N&&!vis[b][a]&&!rock[b][a]);
+    if (!nb.length){ stack.pop(); continue; }
+    const [a,b,i] = nb[Math.floor(R()*nb.length)]; openEdge(x,y,i); vis[b][a] = true; stack.push([a,b]); }
+  function openEdge(x,y,d){ if (d===0) wallN[y][x]=false; if (d===2) wallN[y+1][x]=false; if (d===3) wallW[y][x]=false; if (d===1) wallW[y][x+1]=false; }
+  for (let k=0;k<45;k++){ const x=1+Math.floor(R()*(N-2)), y=1+Math.floor(R()*(N-2)), d=Math.floor(R()*4); const [dx,dy]=D[d];
+    if (!rock[y][x] && !rock[y+dy][x+dx]) openEdge(x,y,d); }
+  // a small clearing near the start
+  for (let y=15;y<18;y++) for (let x=1;x<4;x++){ if (y>15) wallN[y][x]=false; if (x>1) wallW[y][x]=false; }
+  for (let y=0;y<N;y++) for (let x=0;x<N;x++) if (rock[y][x]){ wallN[y][x]=wallN[y+1][x]=true; wallW[y][x]=wallW[y][x+1]=true; }
+  const m = {N, rock, wallN, wallW, seen, inside:false, px:1, py:18, dir:0, start:[1,18],
+    draw:{floor:Array.from({length:N},()=>Array(N).fill(0)), wN:Array.from({length:N+1},()=>Array(N).fill(false)), wW:Array.from({length:N},()=>Array(N+1).fill(false)), icon:{}, memo:{}},
+    autoFloor:true, steps:0, nextEnc:0, encLeft:0, flags:{}};
+  const dist = bfs(m, 1, 18); let far=[1,18], fd=0; for (let y=0;y<N;y++) for (let x=0;x<N;x++) if (dist[y][x]>fd){fd=dist[y][x];far=[x,y];}
+  m.boss = far; m.mist = [N-1, 9]; while (rock[m.mist[1]][m.mist[0]]) m.mist[1]++;
+  m.jiro = [9, 2]; while (rock[m.jiro[1]][m.jiro[0]]) m.jiro[0]++;
+  m.gather = [{x:4,y:10,left:3,kind:"เก็บ"},{x:15,y:7,left:3,kind:"ขุด"}].map(g=>{while(rock[g.y][g.x])g.x++;return g;});
+  m.chests = [{x:17,y:17,open:false,item:"ยาหอม",n:2},{x:2,y:3,open:false,item:"ด้ายสายสิญจน์",n:1}].map(g=>{while(rock[g.y][g.x])g.x++;return g;});
+  m.water = [10,15]; while (rock[m.water[1]][m.water[0]]) m.water[0]++;
+  // elite patrol: shortest path between two mid-map cells, ping-pong
+  m.patrol = pathBetween(m, [9,11], [9,17]); if (m.patrol.length<4) m.patrol = pathBetween(m,[5,9],[11,9]);
+  m.elite = {i:0, dir:1, alive:true, respawn:0};
+  return m;
+}
+function canMove(m, x, y, d){ if (d===0) return !m.wallN[y][x]; if (d===2) return !m.wallN[y+1][x]; if (d===3) return !m.wallW[y][x]; return !m.wallW[y][x+1]; }
+function bfs(m, sx, sy){ const N=m.N, dist=Array.from({length:N},()=>Array(N).fill(-1)), q=[[sx,sy]]; dist[sy][sx]=0;
+  const D=[[0,-1],[1,0],[0,1],[-1,0]];
+  while(q.length){const [x,y]=q.shift(); for(let d=0;d<4;d++){ if(!canMove(m,x,y,d))continue; const a=x+D[d][0], b=y+D[d][1]; if(a<0||b<0||a>=N||b>=N||dist[b][a]>=0)continue; dist[b][a]=dist[y][x]+1; q.push([a,b]); }}
+  return dist; }
+function pathBetween(m, s, e){ while(m.rock[s[1]][s[0]]) s[0]++; while(m.rock[e[1]][e[0]]) e[0]++;
+  const dist = bfs(m, e[0], e[1]); if (dist[s[1]][s[0]]<0) return [s]; const path=[s.slice()]; let [x,y]=s; const D=[[0,-1],[1,0],[0,1],[-1,0]];
+  while (dist[y][x]>0){ for (let d=0;d<4;d++){ if(!canMove(m,x,y,d))continue; const a=x+D[d][0], b=y+D[d][1]; if (dist[b]&&dist[b][a]===dist[y][x]-1){x=a;y=b;break;} } path.push([x,y]); if(path.length>40)break; }
+  return path; }
+function mapCompletion(){ const m = S.map; if (!m) return 0; let tot=0, ok=0;
+  for (let y=0;y<m.N;y++) for (let x=0;x<m.N;x++){ if (m.rock[y][x]) continue; tot++; if (m.draw.floor[y][x]) ok++;
+    if (m.wallN[y][x]){ tot++; if (m.draw.wN[y][x]) ok++; } if (m.wallW[y][x]){ tot++; if (m.draw.wW[y][x]) ok++; }
+    if (y===m.N-1 && m.wallN[y+1][x]){ tot++; if (m.draw.wN[y+1][x]) ok++; } if (x===m.N-1 && m.wallW[y][x+1]){ tot++; if (m.draw.wW[y][x+1]) ok++; } }
+  return Math.floor(ok/tot*100); }
+
+/* ================================================================ DUNGEON */
+let paused = false, lastT = 0, mapTool = {mode:"floor", color:1, icon:"ประตู"};
+const DIRV = [[0,-1],[1,0],[0,1],[-1,0]], DIRN = ["N","E","S","W"];
+function enterDungeon(){ const m = S.map; m.inside = true; m.px = m.start[0]; m.py = m.start[1]; m.dir = 0; resetEnc(); markSeen(); if (m.autoFloor) m.draw.floor[m.py][m.px] = m.draw.floor[m.py][m.px]||1; go("dungeon"); }
+function resetEnc(){ const m = S.map; let n = ri(C.ENCOUNTER_STEPS[0], C.ENCOUNTER_STEPS[1]); if (isNight()) n = Math.ceil(n*C.NIGHT_ENCOUNTER_MULT); m.encLeft = m.nextEnc = n; }
+function renderDungeon(){
+  $("#screen").innerHTML = `<div class="dun"><div class="panel" style="padding:6px"><canvas id="view" width="640" height="480"></canvas>
+     ${art("ฉาก 3D ชายป่าหิมพานต์: ต้นไม้ยักษ์ แสงลอดใบ ศาลเพียงตา (เห็นใน Prototype เป็นกรอบทางเดินแบบ Etrian)")}
+     <div class="row" style="justify-content:space-between;margin-top:6px"><div class="pad">
+      <button data-k="q" aria-label="เดินข้างซ้าย">⇤</button><button data-k="w" aria-label="เดินหน้า">↑</button><button data-k="e" aria-label="เดินข้างขวา">⇥</button>
+      <button data-k="a" aria-label="หมุนซ้าย">↶</button><button data-k="s" aria-label="ถอยหลัง">↓</button><button data-k="d" aria-label="หมุนขวา">↷</button></div>
+      <div class="row"><button id="bMap">แผนที่ (M)</button><button id="bAct">ใช้/เก็บ (Space)</button><button id="bParty">ปาร์ตี้</button><button id="bItem">ไอเทม</button></div></div></div>
+    <div class="panel"><div class="row" style="justify-content:space-between"><b>Mini Map</b><span class="small">${DIRN[S.map.dir]} · ชั้น 1</span></div>
+      <canvas id="mini" width="154" height="154"></canvas>${mapToolbar()}
+      <div class="small" style="margin-top:6px">Danger <span class="meter"><i id="danger"></i></span></div>
+      <div id="dmsg" class="small" style="margin-top:6px"></div>
+      <div class="party" style="margin-top:6px">${partyChars().map(c=>`<div class="pm ${alive(c)?'':'dead'}"><b>${c.name}</b><br>${CLS[c.cls].th} Lv${c.lv}
+        <div class="hpbar"><i style="width:${c.hp/maxHP(c)*100}%"></i></div><div class="hpbar mpbar"><i style="width:${c.mp/maxMP(c)*100}%"></i></div>
+        <span class="small">${c.hp}/${maxHP(c)} · ${c.mp}</span></div>`).join("")}</div></div></div>`;
+  document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => key(b.dataset.k));
+  $("#bMap").onclick = openFullMap; $("#bAct").onclick = act; $("#bParty").onclick = () => go("party"); $("#bItem").onclick = fieldItems;
+  bindToolbar(); drawView(); drawMini(); updDanger();
+}
+function msg(t){ const d = $("#dmsg"); if (d) d.innerHTML = t; }
+function updDanger(){ const m=S.map, d=$("#danger"); if(!d)return; const r = m.encLeft/m.nextEnc; d.style.width=(100-r*100)+"%";
+  d.style.background = r>0.6?"var(--green)":r>0.3?"var(--yellow)":"var(--red)"; if (S.incense>0) d.style.background="var(--blue)"; }
+function key(k){
+  if (S.screen!=="dungeon" || paused) return; const m = S.map;
+  if (k==="a"){ m.dir=(m.dir+3)%4; return afterTurn(); } if (k==="d"){ m.dir=(m.dir+1)%4; return afterTurn(); }
+  const md = k==="w"?m.dir : k==="s"?(m.dir+2)%4 : k==="q"?(m.dir+3)%4 : k==="e"?(m.dir+1)%4 : -1; if (md<0) return;
+  if (!canMove(m, m.px, m.py, md)){ msg("ผนัง/พุ่มไม้หนาทึบ"); return; }
+  m.px += DIRV[md][0]; m.py += DIRV[md][1]; step();
+}
+function afterTurn(){ markSeen(); drawView(); drawMini(); }
+function hungerCost(){ let red = 0; partyChars().filter(alive).forEach(c=>red+=passive(c,"hunger")); return 1 * (1 - Math.min(0.6, red/100)); }
+function step(){
+  const m = S.map; m.steps++;
+  S.hunger = Math.max(0, S.hunger - hungerCost());
+  if (S.hunger<=0){ partyChars().filter(alive).forEach(c=>c.hp=Math.max(0,c.hp-Math.ceil(maxHP(c)*C.STARVE_HP_PCT/100))); msg('<span class="red">อดอาหาร! เสีย HP ทุกก้าว</span>');
+    if (!partyChars().some(alive)) return gameOver(); }
+  if (m.draw && m.autoFloor && !m.draw.floor[m.py][m.px]) m.draw.floor[m.py][m.px] = 1;
+  markSeen(); moveElite();
+  // flags
+  if (m.px===m.mist[0] && m.py===m.mist[1] && !m.flags.mist){ m.flags.mist=1; overlay(`<h2>กำแพงหมอก</h2><p>ปลายลำน้ำคือหมอกขาวที่เดินเข้าไปเท่าไรก็วนกลับมาที่เดิม ข้างกันมีศิลาจารึก: "สิ่งใดมาจากอโนดาต ย่อมคืนสู่อโนดาต"</p>${art("ศิลาจารึกโบราณ + กำแพงหมอก")}${closeBtn}`); bindCloseD(); }
+  if (S.mission>=1 && m.px===m.jiro[0] && m.py===m.jiro[1] && !m.flags.jiro){ m.flags.jiro=1; overlay(`<h2>พบจิโร่!</h2><p>"ท่านหัวหน้า! ข้านึกว่าจะไม่มีใครมาแล้ว…"</p>${art("จิโร่ ช่างหนุ่มญี่ปุ่น ฮากามะเก่าปะผ้าไทย")}${closeBtn}`); bindCloseD(); }
+  if (m.px===m.boss[0] && m.py===m.boss[1]){ m.flags.boss=1; if (S.mission>=2){ overlay(`<h2>ห้องเจ้าป่า</h2><p>ท้าบอสก่อนกำหนด? (เหลือ ${31-S.day} วัน → รางวัล ${(31-S.day)*50} Gold)</p><div class="row"><button id="bossGo">ท้าบอส</button><button id="cls">ยังก่อน</button></div>`); bindCloseD(); $("#bossGo").onclick=()=>{overlay("");startBoss(false);}; return; } else msg("ห้องเจ้าป่า: กลิ่นสัตว์ใหญ่… (ทำภารกิจหลักก่อน)"); }
+  if (m.px===m.water[0] && m.py===m.water[1]){ S.hunger = Math.min(C.MAX_HUNGER, S.hunger+10); msg("ดื่มน้ำ Hunger +10"); }
+  if (checkEliteContact()) return;
+  if (Math.random() < C.SCAVENGE_CHANCE){ const it = pick(CH.gather); S.mats[it]=(S.mats[it]||0)+1; msg("เก็บได้: "+it); }
+  if (S.incense>0) S.incense--; else { m.encLeft--; if (m.encLeft<=0){ resetEnc(); return startRandom(); } }
+  topbar(); drawView(); drawMini(); updDanger();
+}
+function bindCloseD(){ const b=$("#cls"); if(b) b.onclick=()=>{ overlay(""); renderDungeon(); }; }
+function act(){ const m=S.map, [fx,fy]=[m.px,m.py];
+  if (fx===m.start[0] && fy===m.start[1]){ m.inside=false; toast("กลับค่าย"); return go("camp"); }
+  const g = m.gather.find(g=>g.x===fx&&g.y===fy); if (g){ if (g.left<=0) return msg("จุดนี้เก็บครบแล้ววันนี้");
+    g.left--; addMinutes(30); const it = Math.random()<0.7? pick(CH.gather) : "ตะไคร่เรืองแสง"; S.mats[it]=(S.mats[it]||0)+1+(Math.random()<0.25?1:0);
+    msg(`${g.kind}: ได้ ${it} (เหลือ ${g.left} ครั้งวันนี้)`); topbar(); if (Math.random()<0.1){ msg("โดนซุ่มโจมตีระหว่างเก็บ!"); return startRandom(true); } return; }
+  const c = m.chests.find(c=>c.x===fx&&c.y===fy&&!c.open); if (c){ c.open=true; S.inv[c.item]=(S.inv[c.item]||0)+c.n; msg(`หีบสมบัติ: ${c.item} ×${c.n}`); return; }
+  msg("ไม่มีอะไรให้ใช้ตรงนี้ (ทางออก = จุดเริ่ม)"); }
+function fieldItems(){ const its = Object.entries(S.inv).filter(([k,v])=>v>0&&ITEMS[k]);
+  overlay(`<h2>ไอเทม</h2>${its.map(([k,v])=>`<button data-fi="${k}">${k} ×${v}</button>`).join(" ")||'ไม่มี'}${closeBtn}`); bindCloseD();
+  document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{ const k=b.dataset.fi, u=ITEMS[k].use; const pc=partyChars();
+    if (u==="return"){ S.inv[k]--; addMinutes(60); S.map.inside=false; overlay(""); return go("camp"); }
+    if (u==="food20"||u==="food40"){ S.hunger=Math.min(C.MAX_HUNGER,S.hunger+(u==="food20"?20:40)); if(u==="food40") pc.filter(alive).forEach(c=>c.hp=Math.min(maxHP(c),c.hp+Math.round(maxHP(c)*.1))); }
+    else if (u==="heal30"){ const t = pc.filter(alive).sort((a,b)=>a.hp/maxHP(a)-b.hp/maxHP(b))[0]; if(t) t.hp=Math.min(maxHP(t),t.hp+Math.round(maxHP(t)*.3)); }
+    else if (u==="mp25"){ pc.filter(alive).forEach(c=>c.mp=Math.min(maxMP(c),c.mp+Math.round(maxMP(c)*.25))); }
+    else if (u==="incense"){ S.incense = 30; } else return toast("ใช้ได้ในการต่อสู้");
+    S.inv[k]--; overlay(""); renderDungeon(); }); }
+function markSeen(){ const m = S.map; m.seen[m.py][m.px] = true; let x=m.px, y=m.py;
+  for (let d=0; d<3; d++){ if (!canMove(m,x,y,m.dir)) break; x+=DIRV[m.dir][0]; y+=DIRV[m.dir][1]; m.seen[y][x]=true; } }
+function eliteCell(){ const m=S.map; return m.patrol[m.elite.i]; }
+function moveElite(){ const m=S.map, e=m.elite; if (!e.alive){ if (S.day>=e.respawn) e.alive=true; else return; }
+  if (m.patrol.length<2) return; e.prev = m.patrol[e.i].slice(); e.i += e.dir; if (e.i>=m.patrol.length||e.i<0){ e.dir*=-1; e.i+=2*e.dir; } }
+function checkEliteContact(){ const m=S.map, e=m.elite; if (!e.alive) return false; const c = eliteCell();
+  if ((c[0]===m.px&&c[1]===m.py) || (e.prev && e.prev[0]===m.px && e.prev[1]===m.py && c[0]===m.lpx && c[1]===m.lpy)){ startElite(); return true; }
+  m.lpx=m.px; m.lpy=m.py; return false; }
+
+/* ---------------- pseudo-3D view (Etrian-style receding frames) */
+function drawView(){
+  const cv = $("#view"); if (!cv) return; const g = cv.getContext("2d"), W = cv.width, H = cv.height, m = S.map;
+  const night = isNight();
+  const sky = g.createLinearGradient(0,0,0,H/2); sky.addColorStop(0, night?"#05080a":"#2f4a28"); sky.addColorStop(1, night?"#0c1410":"#6e8f4a");
+  g.fillStyle = sky; g.fillRect(0,0,W,H/2);
+  const fl = g.createLinearGradient(0,H/2,0,H); fl.addColorStop(0, night?"#0d0c08":"#3d3420"); fl.addColorStop(1, night?"#1b1710":"#6a5634");
+  g.fillStyle = fl; g.fillRect(0,H/2,W,H/2);
+  // light shafts (day)
+  if (!night){ g.globalAlpha=.08; g.fillStyle="#fff6c0"; for (let i=0;i<4;i++){ g.beginPath(); g.moveTo(80+i*150,0); g.lineTo(120+i*150,0); g.lineTo(60+i*150+90,H); g.lineTo(40+i*150+60,H); g.fill(); } g.globalAlpha=1; }
+  const fr = d => { const s = Math.pow(0.62, d); const w = W*s, h = H*s; return {l:(W-w)/2, r:(W+w)/2, t:(H-h)/2, b:(H+h)/2}; };
+  const D = DIRV, dir = m.dir, left=(dir+3)%4, right=(dir+1)%4;
+  const shade = d => { const v = night? 30-d*5 : 70-d*11; return v; };
+  const leaf = (d, a) => `hsl(${100+d*4},${night?25:38}%,${Math.max(6,shade(d))*a}%)`;
+  let x = m.px, y = m.py, maxD = 5, ex = eliteCell();
+  const elems = [];
+  for (let d=0; d<maxD; d++){
+    const a = fr(d), b = fr(d+1);
+    // left side
+    if (!canMove(m,x,y,left)){ poly(g,[[a.l,a.t],[b.l,b.t],[b.l,b.b],[a.l,a.b]], leaf(d,1)); vines(g,a.l,a.t,b.l,b.b,d); }
+    else { poly(g,[[a.l,b.t],[b.l,b.t],[b.l,b.b],[a.l,b.b]], leaf(d+1,.8)); }
+    if (!canMove(m,x,y,right)){ poly(g,[[a.r,a.t],[b.r,b.t],[b.r,b.b],[a.r,a.b]], leaf(d,1)); vines(g,b.r,a.t,a.r,b.b,d); }
+    else { poly(g,[[a.r,b.t],[b.r,b.t],[b.r,b.b],[a.r,b.b]], leaf(d+1,.8)); }
+    // markers on floor
+    const g1 = m.gather.find(q=>q.x===x&&q.y===y), ch = m.chests.find(q=>q.x===x&&q.y===y&&!q.open);
+    if (d>0 && (g1||ch||(x===m.start[0]&&y===m.start[1])||(x===m.boss[0]&&y===m.boss[1]))) elems.push([d, g1?"🌿":ch?"▣":(x===m.boss[0]&&y===m.boss[1])?"☠":"⛵", a, b]);
+    if (d>0 && m.elite.alive && ex[0]===x && ex[1]===y) elems.push([d,"ELITE",a,b]);
+    if (!canMove(m,x,y,dir)){ poly(g,[[b.l,b.t],[b.r,b.t],[b.r,b.b],[b.l,b.b]], leaf(d+1,1.1)); vines(g,b.l,b.t,b.r,b.b,d+1); break; }
+    x += D[dir][0]; y += D[dir][1];
+  }
+  // current cell markers
+  if ((m.px===m.start[0]&&m.py===m.start[1])) elems.push([0.6,"⛵",fr(0),fr(1)]);
+  for (const [d,t,a,b] of elems.sort((p,q)=>q[0]-p[0])){
+    const cx = W/2, cy = (b.b+a.b)/2, s = (b.r-b.l)/6;
+    if (t==="ELITE"){ g.fillStyle = "rgba(10,6,4,.85)"; g.beginPath(); g.ellipse(cx, b.b - s*1.2, s*1.4, s*1.1, 0, 0, Math.PI*2); g.fill();
+      g.fillStyle="#c33"; g.fillRect(cx-s*.5,b.b-s*1.6,s*.25,s*.15); g.fillRect(cx+s*.25,b.b-s*1.6,s*.25,s*.15);
+      g.strokeStyle="#d0563f"; g.lineWidth=2; g.strokeRect(cx-s*1.6,b.b-s*2.5,s*3.2,s*2.6);
+      if (S.art){ g.fillStyle="#f3d8ff"; g.font="13px Sarabun"; g.fillText("[Art: โลโต — สิงห์มีงวงและงาเล็ก (สัตว์ชั้นสูง)]", cx-s*1.6, b.b-s*2.7); } }
+    else { g.font = `${Math.max(12, s*1.6)}px serif`; g.textAlign="center"; g.fillText(t, cx, cy); g.textAlign="left"; }
+  }
+  // compass + night tint
+  g.fillStyle="rgba(0,0,0,.5)"; g.fillRect(8,8,58,24); g.fillStyle="#d6a84a"; g.font="15px Chakra Petch, sans-serif"; g.fillText("⌖ "+DIRN[m.dir], 14, 26);
+  if (S.art){ g.fillStyle="#f3d8ff"; g.font="12px Sarabun"; g.fillText("[Art: ผนัง = ต้นไม้/พุ่มไม้ยักษ์ · พื้น = ดินป่า · ท้องฟ้า = เรือนยอดไม้ลอดแสง]", 10, H-10); }
+}
+function poly(g, pts, col){ g.fillStyle = col; g.beginPath(); g.moveTo(pts[0][0],pts[0][1]); for (const p of pts.slice(1)) g.lineTo(p[0],p[1]); g.closePath(); g.fill();
+  g.strokeStyle="rgba(0,0,0,.35)"; g.lineWidth=1; g.stroke(); }
+function vines(g, x1, y1, x2, y2, d){ g.strokeStyle = `rgba(20,40,15,${0.5-d*0.07})`; g.lineWidth = Math.max(1, 3-d*0.5);
+  for (let i=1;i<5;i++){ const x = x1 + (x2-x1)*i/5; g.beginPath(); g.moveTo(x, y1); g.bezierCurveTo(x+6, y1+(y2-y1)*.3, x-6, y1+(y2-y1)*.6, x+3, y2); g.stroke(); } }
+
+/* ---------------- cartography */
+const ICONS = ["ประตู","บันได","จุดเก็บ","หีบ","สัตว์ชั้นสูง","ลูกศร↑","!","?"];
+const ICONCH = {"ประตู":"⊓","บันได":"≡","จุดเก็บ":"✿","หีบ":"▣","สัตว์ชั้นสูง":"●","ลูกศร↑":"↑","!":"!","?":"?"};
+const FCOL = ["", "#5f7f4a", "#3f6f9f", "#9f4a3f", "#b89a3a"];
+function mapToolbar(){ return `<div class="row" style="margin-top:6px">${["floor","wall","icon","memo","erase"].map(t=>`<button data-tool="${t}" class="${mapTool.mode===t?'on':''}">${{floor:"พื้น",wall:"ผนัง",icon:"ไอคอน",memo:"Memo",erase:"ลบ"}[t]}</button>`).join("")}
+  </div><div class="row" style="margin-top:4px">${[1,2,3,4].map(c=>`<button data-col="${c}" class="${mapTool.color===c?'on':''}" style="background:${FCOL[c]};width:26px" aria-label="สีพื้น ${c}">&nbsp;</button>`).join("")}
+  <select id="iconSel" aria-label="ไอคอน">${ICONS.map(i=>`<option ${mapTool.icon===i?'selected':''}>${i}</option>`).join("")}</select>
+  <label class="small"><input type="checkbox" id="autoF" ${S.map.autoFloor?'checked':''}> Auto Floor</label></div>`; }
+function bindToolbar(){ document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{mapTool.mode=b.dataset.tool;refreshMapUI();});
+  document.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{mapTool.color=+b.dataset.col;mapTool.mode="floor";refreshMapUI();});
+  const s=$("#iconSel"); if(s) s.onchange=()=>{mapTool.icon=s.value;mapTool.mode="icon";refreshMapUI();};
+  const a=$("#autoF"); if(a) a.onchange=()=>{S.map.autoFloor=a.checked;};
+  const mini=$("#mini"); if (mini) bindDraw(mini, 7, () => [S.map.px-3, S.map.py-3]);
+  const full=$("#full"); if (full) bindDraw(full, S.map.N, () => [0,0]); }
+function refreshMapUI(){ if (S.screen==="dungeon" && !$("#full")) renderDungeon(); else if ($("#full")) openFullMap(); }
+function drawMapCanvas(cv, cells, ox, oy, showPlayer){
+  const g = cv.getContext("2d"), m = S.map, W = cv.width, cs = W / cells;
+  g.fillStyle = "#111"; g.fillRect(0,0,W,W);
+  for (let j=0;j<cells;j++) for (let i=0;i<cells;i++){ const x=ox+i, y=oy+j; if (x<0||y<0||x>=m.N||y>=m.N) continue;
+    if (!m.seen[y][x]){ g.fillStyle="#1a1a1a"; g.fillRect(i*cs,j*cs,cs,cs); continue; }
+    g.fillStyle = m.draw.floor[y][x] ? FCOL[m.draw.floor[y][x]] : "#2a2a24"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2);
+    const ic = m.draw.icon[x+","+y]; if (ic){ g.fillStyle="#fff"; g.font=`${cs*.6}px sans-serif`; g.textAlign="center"; g.fillText(ICONCH[ic]||"?", i*cs+cs/2, j*cs+cs*.72); g.textAlign="left"; }
+    if (m.draw.memo[x+","+y]){ g.fillStyle="#f0d060"; g.fillRect(i*cs+cs-5,j*cs+1,4,4); } }
+  g.strokeStyle="#e8e2cf"; g.lineWidth=Math.max(2,cs/8);
+  for (let j=0;j<=cells;j++) for (let i=0;i<=cells;i++){ const x=ox+i, y=oy+j;
+    if (x>=0&&x<m.N&&y>=0&&y<=m.N&&i<cells&&m.draw.wN[y][x]){ g.beginPath(); g.moveTo(i*cs,j*cs); g.lineTo((i+1)*cs,j*cs); g.stroke(); }
+    if (y>=0&&y<m.N&&x>=0&&x<=m.N&&j<cells&&m.draw.wW[y][x]){ g.beginPath(); g.moveTo(i*cs,j*cs); g.lineTo(i*cs,(j+1)*cs); g.stroke(); } }
+  // elite live icon if seen in line of sight
+  const e = eliteCell(); if (m.elite.alive && m.seen[e[1]][e[0]] && Math.abs(e[0]-m.px)+Math.abs(e[1]-m.py)<=4){ const i=e[0]-ox, j=e[1]-oy; if(i>=0&&j>=0&&i<cells&&j<cells){ g.fillStyle="#d0563f"; g.beginPath(); g.arc(i*cs+cs/2,j*cs+cs/2,cs*.3,0,7); g.fill(); } }
+  if (showPlayer){ const i=m.px-ox, j=m.py-oy, cx=i*cs+cs/2, cy=j*cs+cs/2; g.save(); g.translate(cx,cy); g.rotate(m.dir*Math.PI/2); g.fillStyle="#f0d060";
+    g.beginPath(); g.moveTo(0,-cs*.38); g.lineTo(cs*.3,cs*.3); g.lineTo(-cs*.3,cs*.3); g.closePath(); g.fill(); g.restore(); }
+}
+function drawMini(){ const cv=$("#mini"); if (cv) drawMapCanvas(cv, 7, S.map.px-3, S.map.py-3, true); }
+function bindDraw(cv, cells, origin){
+  const handler = ev => { ev.preventDefault(); const r = cv.getBoundingClientRect(), [ox,oy] = origin();
+    const fx = (ev.clientX - r.left) / r.width * cells, fy = (ev.clientY - r.top) / r.height * cells;
+    const i = Math.floor(fx), j = Math.floor(fy), x = ox+i, y = oy+j, m = S.map; if (x<0||y<0||x>=m.N||y>=m.N || !m.seen[y][x]) return;
+    const dx = fx - i, dy = fy - j, k = x+","+y;
+    if (mapTool.mode==="wall"){ const e = Math.min(dx,1-dx,dy,1-dy);
+      if (e===dy) m.draw.wN[y][x]=!m.draw.wN[y][x]; else if (e===1-dy) m.draw.wN[y+1][x]=!m.draw.wN[y+1][x];
+      else if (e===dx) m.draw.wW[y][x]=!m.draw.wW[y][x]; else m.draw.wW[y][x+1]=!m.draw.wW[y][x+1]; }
+    else if (mapTool.mode==="floor") m.draw.floor[y][x] = m.draw.floor[y][x]===mapTool.color ? 0 : mapTool.color;
+    else if (mapTool.mode==="icon") m.draw.icon[k] = m.draw.icon[k]===mapTool.icon ? undefined : mapTool.icon;
+    else if (mapTool.mode==="memo"){ memoPrompt(x,y); return; }
+    else { m.draw.floor[y][x]=0; delete m.draw.icon[k]; delete m.draw.memo[k]; }
+    drawMini(); const f=$("#full"); if (f) drawMapCanvas(f, m.N, 0, 0, true); };
+  cv.onpointerdown = handler; cv.oncontextmenu = ev => { ev.preventDefault(); const sv=mapTool.mode; mapTool.mode="erase"; handler(ev); mapTool.mode=sv; };
+}
+function memoPrompt(x,y){ const k=x+","+y; overlay(`<h2>Memo (${x},${y})</h2><input id="memoIn" maxlength="40" value="${esc(S.map.draw.memo[k]||'')}" style="width:100%;padding:6px">
+  <div class="row" style="margin-top:6px"><button id="memoOk">บันทึก</button><button id="cls">ยกเลิก</button></div>`);
+  $("#memoOk").onclick=()=>{ S.map.draw.memo[k]=$("#memoIn").value; overlay(""); refreshAfterOverlay(); }; $("#cls").onclick=()=>{overlay("");refreshAfterOverlay();}; }
+function refreshAfterOverlay(){ if (fullOpen) openFullMap(); else renderDungeon(); }
+let fullOpen = false;
+function openFullMap(){ fullOpen = true; paused = true;
+  overlay(`<div class="row" style="justify-content:space-between"><h2 style="margin:0">แผนที่ชั้น 1 — ${mapCompletion()}%</h2><span class="small">เวลาหยุด</span></div>
+    <canvas id="full" width="520" height="520"></canvas>${mapToolbar()}
+    <p class="small">คลิกซ้าย = วาดตามเครื่องมือ · คลิกขวา = ลบ · ผนัง: คลิกใกล้ขอบช่อง · วาดได้เฉพาะช่องที่เคยเห็น</p>
+    <div class="tw small">${Object.entries(S.map.draw.memo).filter(([k,v])=>v).map(([k,v])=>`(${k}) ${esc(v)}`).join(" · ")}</div>
+    <div class="row"><button id="closeMap">ปิดแผนที่ (M)</button></div>`);
+  drawMapCanvas($("#full"), S.map.N, 0, 0, true); bindToolbar();
+  $("#closeMap").onclick = () => { fullOpen=false; paused=false; overlay(""); renderDungeon(); }; }
+
+/* ================================================================ COMBAT */
+let B = null;
+function enemyFrom(m, opts={}){ const s = m.stats; const e = {name:m.name, mon:m, lv:m.lv, hp:s.HP, mhp:s.HP, atk:s.ATK, def:s.DEF, mdef:s.MDEF, agi:s.AGI, acc:s.ACC,
+   exp:s.EXP, gold:s.GOLD, elem:m.elem, beh:m.beh, tier:m.tier, st:{}, cd:{}, charge:null, turnsAlive:0, fled:false, boss:false};
+  return Object.assign(e, opts); }
+function startRandom(ambush){ const pool = MON.filter(m=>m.tier==="ทั่วไป");
+  const m = pick(pool); const [a,b] = m.group.split("–").map(Number); let n = ri(a, b||a);
+  if (Math.random()<0.4 && n<3){ n++; }
+  let es = Array.from({length:n},()=>enemyFrom(m)); if (Math.random()<0.35){ const m2 = pick(pool); if (m2!==m && es.length<4) es.push(enemyFrom(m2)); }
+  if (isNight()) es.forEach(e=>{ e.hp=e.mhp=Math.round(e.mhp*1.3); e.atk=Math.round(e.atk*1.3); e.exp=Math.round(e.exp*1.3); e.gold=Math.round(e.gold*1.3); e.night=true; });
+  beginCombat(es, {ambush}); }
+function startElite(){ const m = MON.find(x=>x.name==="โลโต"); beginCombat([enemyFrom(m)], {elite:true}); }
+function startBoss(forced){ const L = CH.lv[1]+2; const hp = Math.round((30+15*L)*12), atk = Math.round((8+3.2*L)*1.6);
+  const fake = {name:"บอส Chapter 1 — รอ Game Designer ระบุ", legend:"เจ้าแห่งชายป่า (ตัวตนรอ Game Designer เลือกจาก: ไกรสรราชสีห์, ช้างฉัททันต์, พญานาค, ครุฑ…)", tier:"บอส", beh:"Charger", lv:L,
+    elem:{fire:"N",water:"W",wind:"N",phys:"N"}, skills:[["ฟาด","Physical 120%","-","50%"],["ถล่มป่า","ชาร์จ 1 เทิร์น → Physical 180% ทั้งปาร์ตี้","3 เทิร์น","40%"],["คำราม","ATK ปาร์ตี้ −20% 2 เทิร์น","3 เทิร์น","10%"]],
+    drop:["ชิ้นส่วนเจ้าป่า","100%"], rare:["-","-"], stats:{HP:hp,ATK:atk,DEF:Math.round(3+1.6*L),MDEF:Math.round((3+1.6*L)*.6),AGI:Math.round(5+1.2*L),ACC:30,EXP:Math.round(expNeed(L)/15*8),GOLD:Math.round((5+2*L)*10)}};
+  overlay(""); if (forced){ S.map.inside=true; }
+  beginCombat([enemyFrom(fake,{boss:true})], {boss:true, early:!forced}); }
+function beginCombat(es, opt){
+  paused = true; S.screen = "combat";
+  const pc = partyChars(); pc.forEach(c=>{ c.buffs={}; c.rhythm=0; c.def=false; c.guardBy=null; c.parry=0; c.ward=c.ward||0; c.free=false; });
+  let pre = 0.10; pc.filter(alive).forEach(c=>pre+=passive(c,"pre")/100);
+  const first = opt.boss? "none" : opt.ambush ? "ambush" : Math.random()<pre ? "pre" : Math.random()<0.10 ? "ambush" : "none";
+  B = {es, opt, turn:1, log:[], cmd:[], ci:0, target:0, phase:"cmd", provoke:null, first, analyzed:false, partyAtkDown:0};
+  log(opt.boss? "<b class='red'>หมอกลง… เจ้าป่าออกล่า!</b>" : opt.elite? "<b class='red'>สัตว์ชั้นสูงขวางทาง!</b>" : "เผชิญหน้า: "+es.map(e=>e.name+(e.night?" (ร่างกลางคืน)":"")).join(", "));
+  if (first==="pre") log("<span class='green'>Preemptive! ปาร์ตี้ได้เล่นก่อน</span>");
+  if (first==="ambush"){ log("<span class='red'>โดนซุ่มโจมตี!</span>"); B.phase="resolve"; renderCombat(); setTimeout(()=>{ enemyPhase(); endOfTurn(); }, 300); return; }
+  renderCombat();
+}
+function log(t){ B.log.push(t); const l=$("#clog"); if (l){ l.innerHTML = B.log.slice(-60).join("<br>"); l.scrollTop = 1e6; } }
+const sil = m => { const n = (m.name||""); const kind = /สีห์|สิงห|ไกรสร|โลโต|สางแปลง|ติณ/.test(n)?"lion":/ปักษา|การวิก|ครุฑ|กินนร/.test(n)?"bird":/ช้าง|กุญชร|คช/.test(n)?"ele":/นาค|เหรา|มกร|กุมภีร์/.test(n)?"ser":"beast";
+  const P = {lion:"M20 70 Q25 40 45 38 Q55 20 70 30 Q85 34 80 50 L90 70 Z", bird:"M50 25 Q60 30 58 45 L90 35 L70 55 L60 75 L40 75 L30 55 L10 35 L42 45 Q40 30 50 25Z",
+    ele:"M15 70 L18 40 Q30 22 55 25 Q80 28 82 50 L86 70 L72 70 L70 55 L35 55 L32 70 Z M80 45 Q95 55 88 72", ser:"M10 65 Q30 40 50 60 Q70 80 85 45 Q90 30 78 28 Q70 32 75 40", beast:"M20 70 Q20 40 40 35 Q50 15 65 35 Q85 40 80 70 Z"}[kind];
+  return `<svg viewBox="0 0 100 80" width="110" height="86" aria-hidden="true"><path d="${P}" fill="#0c0906" stroke="#d6a84a" stroke-width="1.5"/></svg>`; };
+function renderCombat(){
+  const pc = partyChars();
+  $("#screen").innerHTML = `<div class="panel orn"><div class="enemies">${B.es.map((e,i)=>`<div class="ecard ${e.hp<=0||e.fled?'dead':''} ${i===B.target?'sel':''} ${e.boss||e.tier!=='ทั่วไป'?'elite':''}" data-t="${i}" id="ec${i}">
+      <div class="sil">${sil(e)}</div><b>${e.name}</b>${e.night?' <span class="tag">กลางคืน</span>':''}<div class="small">Lv${e.lv} ${e.tier}</div>
+      <div class="hpbar"><i style="width:${Math.max(0,e.hp/e.mhp*100)}%"></i></div><div class="small">${S.kills[e.name]?e.hp+'/'+e.mhp:'HP ?'} ${Object.keys(e.st).map(s=>`<span class="tag">${stTh(s)}</span>`).join("")}${e.charge?'<span class="tag red">ชาร์จ!</span>':''}</div>
+      ${art(e.name+" — "+(e.mon.legend||""))}</div>`).join("")}</div>
+    <div class="party" style="margin-top:8px">${pc.map((c,i)=>`<div class="pm ${alive(c)?'':'dead'} ${B.phase==='cmd'&&i===B.ci?'act':''}"><b>${c.name}</b> ${CLS[c.cls].th} Lv${c.lv}
+      <div class="hpbar"><i style="width:${c.hp/maxHP(c)*100}%"></i></div><div class="hpbar mpbar"><i style="width:${c.mp/maxMP(c)*100}%"></i></div>
+      <span class="small">HP ${c.hp}/${maxHP(c)} MP ${c.mp}/${maxMP(c)}</span> ${Object.keys(c.st).map(s=>`<span class="tag">${stTh(s)}</span>`).join("")}
+      ${c.cls==="boxer"?`<div class="small">จังหวะปี่กลอง ${"●".repeat(c.rhythm)}${"○".repeat(5-c.rhythm)}</div>`:''}<div class="small">${B.cmd[i]?'→ '+cmdName(B.cmd[i]):''}</div></div>`).join("")}</div>
+    <div id="cmdArea" style="margin-top:8px"></div><div class="log" id="clog" style="margin-top:8px"></div></div>`;
+  document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ B.target=+b.dataset.t; renderCombat(); });
+  $("#clog").innerHTML = B.log.slice(-60).join("<br>"); $("#clog").scrollTop = 1e6;
+  if (B.phase==="cmd") cmdMenu();
+}
+const stTh = s => ({poison:"พิษ",stun:"มึน",sleep:"หลับ",bind:"มัด",para:"อัมพาต",blind:"บอด",agiDown:"AGI↓",atkDown:"ATK↓"}[s]||s);
+const cmdName = c => c.t==="skill"? c.s.name : ({fight:"Fight",def:"Defense",item:"Item: "+c.item,run:"Run"}[c.t]);
+function cmdMenu(){
+  const pc = partyChars(); while (B.ci<pc.length && (!alive(pc[B.ci]) || cantAct(pc[B.ci]))){ B.cmd[B.ci]={t:"none"}; B.ci++; }
+  if (B.ci>=pc.length){ B.phase="resolve"; return resolveTurn(); }
+  const c = pc[B.ci], area = $("#cmdArea");
+  const acts = CLS[c.cls].skills.filter(s=>rankOf(c,s.name)>0 && FX[s.name] && FX[s.name].t!=="pas" && s.kind!=="Passive");
+  area.innerHTML = `<div class="small">คำสั่งของ <b>${c.name}</b> (เลือกเป้าหมายด้วยการคลิกการ์ดศัตรู)</div><div class="cmds">
+    <button data-c="fight" ${c.st.bind?'disabled':''}>Fight</button><button data-c="skill" ${acts.length?'':'disabled'}>Skill</button><button data-c="item">Item</button><button data-c="def">Defense</button><button data-c="run" ${B.opt.boss?'disabled':''}>Run</button>
+    ${B.ci>0?'<button data-c="back">ย้อน</button>':''}</div><div id="sub" class="cmds" style="margin-top:6px"></div>`;
+  area.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ const k=b.dataset.c;
+    if (k==="back"){ B.ci--; B.cmd.length=B.ci; return renderCombat(); }
+    if (k==="skill"){ $("#sub").innerHTML = acts.map((s,i)=>{ const r=rankOf(c,s.name), mp=mpCost(c,s); return `<button data-s="${i}" ${c.mp>=mp&&!(c.st.bind&&!FX[s.name].mag&&FX[s.name].t==="dmg")?'':'disabled'}>${s.name} R${r} (${mp} MP)</button>`;}).join("");
+      $("#sub").querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{ const s=acts[+x.dataset.s], f=FX[s.name];
+        if (["heal","cleanse","ward","regen","guard"].includes(f.t) && f.tg==="ally" || f.t==="guard" || f.t==="revive") return allyPick(c, s, f);
+        pushCmd({t:"skill",s,tgt:B.target}); }); return; }
+    if (k==="item"){ const its = Object.entries(S.inv).filter(([n,v])=>v>0&&ITEMS[n]&&["heal30","mp25","wake","bombfire"].includes(ITEMS[n].use));
+      $("#sub").innerHTML = its.map(([n,v])=>`<button data-i="${n}">${n} ×${v}</button>`).join("")||'<span class="small">ไม่มีไอเทมที่ใช้ได้</span>';
+      $("#sub").querySelectorAll("[data-i]").forEach(x=>x.onclick=()=>pushCmd({t:"item",item:x.dataset.i})); return; }
+    pushCmd({t:k, tgt:B.target}); });
+}
+function allyPick(c, s, f){ const pc = partyChars(); const list = f.t==="revive" ? pc.filter(x=>!alive(x)) : pc.filter(alive);
+  $("#sub").innerHTML = list.map(x=>`<button data-a="${x.id}">${x.name}</button>`).join("")||'<span class="small">ไม่มีเป้าหมาย</span>';
+  $("#sub").querySelectorAll("[data-a]").forEach(x=>x.onclick=()=>pushCmd({t:"skill",s,ally:x.dataset.a,tgt:B.target})); }
+function pushCmd(cmd){ B.cmd[B.ci]=cmd; B.ci++; renderCombat(); }
+function cantAct(c){ return c.st.stun || c.st.sleep; }
+function mpCost(c, s){ const r = rankOf(c,s.name); if (!r) return 0; let mp = s.mp[r-1]; mp = Math.ceil(mp * (1 - passive(c,"mpred")/100)); return c.free ? 0 : mp; }
+function rv(c, s, col){ const r = rankOf(c,s.name); return s.ranks[Math.max(0,r-1)][col]; }
+
+function resolveTurn(){
+  const pc = partyChars(); const acts = [];
+  pc.forEach((c,i)=>{ const cmd=B.cmd[i]; if (!cmd||cmd.t==="none"||!alive(c)) return; if (cmd.t==="def"){ c.def=true; log(`${c.name} ตั้งรับ`); return; }
+    acts.push({who:c, side:"p", cmd, spd:stat(c,"AGI")*rnd(.9,1.1)}); });
+  B.es.forEach(e=>{ if (e.hp>0 && !e.fled) acts.push({who:e, side:"e", spd:e.agi*(e.st.agiDown?0.7:1)*rnd(.9,1.1)}); });
+  acts.sort((a,b)=>b.spd-a.spd);
+  for (const a of acts){ if (battleOver()) break;
+    if (a.side==="p"){ if (!alive(a.who)) continue; doPlayer(a.who, a.cmd); } else { if (a.who.hp<=0||a.who.fled) continue; doEnemy(a.who); } }
+  endOfTurn();
+}
+function enemyPhase(){ B.es.forEach(e=>{ if (e.hp>0 && !e.fled && !battleOver()) doEnemy(e); }); }
+function battleOver(){ return !B.es.some(e=>e.hp>0&&!e.fled) || !partyChars().some(alive) || B.ran; }
+function endOfTurn(){
+  const pc = partyChars();
+  // statuses & buffs
+  for (const u of [...pc.filter(alive), ...B.es.filter(e=>e.hp>0)]){
+    if (u.st.poison){ const mh = u.mhp||maxHP(u); const d = u.boss? Math.min(300, Math.round(mh*.02)) : Math.max(1, Math.round(mh*(u.st.poison.pw||.10))); u.hp=Math.max(0,u.hp-d); log(`${u.name} เสีย ${d} จากพิษ`); if (u.hp<=0 && u.mon) onEnemyDie(u, null); }
+    for (const k of Object.keys(u.st)){ if (--u.st[k].t<=0){ delete u.st[k]; } }
+    if (u.buffs) for (const k of Object.keys(u.buffs)){ if (--u.buffs[k].t<=0) delete u.buffs[k]; }
+    if (u.regen){ const h=Math.round(maxHP(u)*u.regen.v); u.hp=Math.min(maxHP(u),u.hp+h); if(--u.regen.t<=0) u.regen=null; }
+  }
+  pc.filter(alive).forEach(c=>{ c.def=false; c.parry=0; const r=passive(c,"mpregen"); if (r) c.mp=Math.min(maxMP(c),c.mp+r);
+    const bl=passive(c,"blood"); if (bl && c.hp<maxHP(c)/2) c.hp=Math.min(maxHP(c),c.hp+Math.round(maxHP(c)*bl/100)); });
+  if (B.provoke && --B.provoke.t<=0) B.provoke=null;
+  if (B.partyDR && --B.partyDR.t<=0) B.partyDR=null;
+  if (B.pbuff) for (const k of Object.keys(B.pbuff)) if (--B.pbuff[k].t<=0) delete B.pbuff[k];
+  B.es.forEach(e=>{ e.turnsAlive++; for (const k in e.cd) if (e.cd[k]>0) e.cd[k]--; });
+  if (B.ran){ log("หนีสำเร็จ!"); return finishCombat("run"); }
+  if (!partyChars().some(alive)) return finishCombat("lose");
+  if (!B.es.some(e=>e.hp>0&&!e.fled)) return finishCombat("win");
+  B.turn++; B.cmd=[]; B.ci=0; B.phase="cmd"; const t = B.es.findIndex(e=>e.hp>0&&!e.fled); if (B.es[B.target].hp<=0||B.es[B.target].fled) B.target=t; renderCombat();
+}
+function liveTarget(i){ if (B.es[i] && B.es[i].hp>0 && !B.es[i].fled) return B.es[i]; return B.es.find(e=>e.hp>0&&!e.fled); }
+function floatAt(el, txt, col){ if (!el) return; const f = document.createElement("div"); f.className="float"; f.style.color=col; f.textContent=txt; el.appendChild(f); setTimeout(()=>f.remove(),900); }
+function reveal(e, el){ const b = S.bestiary[e.name] = S.bestiary[e.name]||{}; b[el]=1; }
+function elemMod(e, el){ let m = EMOD[e.elem[el]] ?? 1; if (e.elem[el]==="W" && B.analyzed) m += B.analyzed; return m; }
+function playerHit(c, e, mult, o={}){
+  if (!e) return 0; const mag = !!o.mag; let el = o.el || "phys";
+  if (el==="auto"||el==="best"){ const cands = el==="best"?["fire","water","wind"]:["fire","water","wind"]; el = cands.sort((a,b)=>elemMod(e,b)-elemMod(e,a))[0]; if (o.el==="auto" && !Object.values(S.bestiary[e.name]||{}).length) el="fire"; }
+  // hit check
+  let acc = 0; partyChars().filter(alive).forEach(x=>acc+=passive(x,"acc")); let miss = 0.05 - acc/100 + (c.st.blind?0.30:0);
+  if (Math.random() < Math.max(0, miss)){ log(`${c.name} พลาด!`); floatAt($("#ec"+B.es.indexOf(e)),"MISS","#aaa"); return 0; }
+  let base = mag ? spellPow(c)*(1+stat(c,"TEC")/40)*(1+passive(c,"mag")/100) : weaponATK(c)*(1+stat(c,"STR")/50)*(1+(c.buffs.atk?c.buffs.atk.v:0)+partyBuff("atk"));
+  if (c.buffs.rage) base *= 1 + c.buffs.rage.v * (1 - c.hp/maxHP(c));
+  if (c.cls==="boxer") base *= 1 + c.rhythm * (passive(c,"rhy")/100 || 0.06);
+  if (passive(c,"pred") && (e.st.bind||e.st.para||e.st.stun)) base *= 1 + passive(c,"pred")/100;
+  let def = mag ? e.mdef : e.def; if (o.ign) def *= 1 - o.ign;
+  const em = elemMod(e, el); reveal(e, el);
+  let critC = C.CRIT_BASE + stat(c,"LUK")*0.002 + (o.cb||0); const crit = o.crit || Math.random() < critC;
+  let d = base * mult * em * (crit ? Math.min(2.5, 1.5 + stat(c,"AGI")/100) : 1) * rnd(.9,1.1) * 100 / (100 + def);
+  if (e.st.sleep){ d *= 1.5; delete e.st.sleep; }
+  d = Math.max(1, Math.round(d)); e.hp -= d; e.lastEl = el; e.lastBy = c;
+  const col = crit ? "#f0d060" : em>1 ? "#5aa6d6" : em<1 ? "#8a8a80" : "#ffffff";
+  floatAt($("#ec"+B.es.indexOf(e)), d + (crit?"!":""), col);
+  log(`${c.name} → ${e.name} <b style="color:${col}">${d}</b>${crit?" (คริติคอล)":""}${em>1?" ได้ผลมาก!":em<1?" ไม่ค่อยได้ผล":""} [${ELEM_TH[el]}]`);
+  if (e.hp<=0) onEnemyDie(e, c);
+  return d;
+}
+function partyBuff(k){ return B.pbuff && B.pbuff[k] ? B.pbuff[k].v : 0; }
+function applyStatus(e, st, chance, user, extra){ const res = e.boss?0.5:e.tier!=="ทั่วไป"?0.25:0; const ch = chance*(1+stat(user,"LUK")/200)*(1-res);
+  if (Math.random()<ch){ const dur = {poison:3,stun:1,sleep:3,bind:2,para:3,blind:3}[st]; e.st[st] = Object.assign({t: (e.boss? Math.max(1,dur-1): dur)+1}, extra||{}); log(`  ${e.name} ติด ${stTh(st)}`); return true; } return false; }
+function doPlayer(c, cmd){
+  if (cantAct(c)) return; if (c.st.para && Math.random()<0.5){ log(`${c.name} ตัวชาขยับไม่ได้`); return; }
+  const e = liveTarget(cmd.tgt);
+  if (cmd.t==="fight"){ playerHit(c, e, 1.0); return; }
+  if (cmd.t==="run"){ const pa = partyChars().filter(alive).reduce((a,x)=>a+stat(x,"AGI"),0)/partyChars().filter(alive).length; const ea = B.es.filter(x=>x.hp>0).reduce((a,x)=>a+x.agi,0)/B.es.filter(x=>x.hp>0).length;
+    const ch = clamp(C.RUN_BASE + (pa-ea)*0.005, .10, .75); if (Math.random()<ch) B.ran=true; else log("หนีไม่สำเร็จ!"); return; }
+  if (cmd.t==="item"){ const u = ITEMS[cmd.item].use; S.inv[cmd.item]--; const pot = 1 + Math.max(0,...S.roster.map(x=>passive(x,"potion")))/100;
+    if (u==="heal30"){ const t = partyChars().filter(alive).sort((a,b)=>a.hp/maxHP(a)-b.hp/maxHP(b))[0]; const h=Math.round(maxHP(t)*.3*pot); t.hp=Math.min(maxHP(t),t.hp+h); log(`${c.name} ใช้ยาหอม → ${t.name} +${h} HP`); }
+    if (u==="mp25"){ c.mp=Math.min(maxMP(c),c.mp+Math.round(maxMP(c)*.25)); log(`${c.name} ใช้น้ำผึ้งป่า`); }
+    if (u==="wake"){ partyChars().forEach(x=>{delete x.st.sleep;delete x.st.para;delete x.st.stun;}); log("ยาดม: ทุกคนตื่นตัว"); }
+    if (u==="bombfire"){ B.es.filter(x=>x.hp>0).forEach(x=>{ const d=Math.round(80*elemMod(x,"fire")); x.hp-=d; reveal(x,"fire"); x.lastEl="fire"; log(`ระเบิดไฟ → ${x.name} ${d}`); if(x.hp<=0) onEnemyDie(x,c); }); }
+    return; }
+  // skill
+  const s = cmd.s, f = FX[s.name], mp = mpCost(c,s); if (c.mp < mp){ log(`${c.name} MP ไม่พอ`); return; } c.mp -= mp; if (c.free && mp===0) c.free=false;
+  log(`<span class="gold">${c.name} ใช้ ${s.name}</span>`);
+  const gv = col => rv(c,s,col);
+  if (f.t==="dmg"){ const mult = pct(gv(f.m)); const o = {mag:f.mag, el:f.el, ign: f.ign?pct(gv(f.ign)):0, cb: f.cb?pct(gv(f.cb)):0, crit:f.crit};
+    const targets = f.tg==="all" ? B.es.filter(x=>x.hp>0&&!x.fled) : [e];
+    for (const t of targets){ if (!t) continue;
+      if (f.hits3){ for (let i=0;i<3;i++){ if (t.hp>0 && Math.random()<pct(gv(f.hits3))) playerHit(c,t,mult,o); } }
+      else { const hits = f.hits ? num(gv(f.hits)) : 1; for (let i=0;i<hits;i++) if (t.hp>0) playerHit(c,t,mult,Object.assign({},o,{crit: f.exec ? (t.hp/t.mhp < pct(gv(f.exec))) : o.crit})); }
+      if (f.st && t.hp>0) applyStatus(t, f.st, pct(gv(f.sc)), c, f.st==="poison"?{pw:.10}:null);
+      if (f.agiDown && t.hp>0){ t.st.agiDown={t:3}; log(`  ${t.name} AGI ลดลง`); }
+      if (f.cancel && t.charge && Math.random() < pct(gv(f.cancel))*(t.boss?.5:1)){ t.charge=null; t.cancelled=true; t.cancelledOnce=true; log(`  <b class="green">ยกเลิกท่าชาร์จของ ${t.name}!</b>`); } }
+    if (f.rh && c.cls==="boxer") c.rhythm = Math.min(5, c.rhythm+1); return; }
+  if (f.t==="buff"){ const v = pct(gv(f.v)); const dur = f.d ? num(gv(f.d)) : 2;
+    if (f.tg==="party"){ if (f.stat==="dr"){ B.partyDR={v,t:dur}; } else { B.pbuff=B.pbuff||{}; B.pbuff[f.stat]={v,t:dur}; partyChars().forEach(x=>{ if(f.stat==="def") x.buffs.def={v,t:dur}; }); } log(`  ทั้งปาร์ตี้ได้รับ ${s.name} ${dur} เทิร์น`); }
+    else { c.buffs[f.stat]={v,t:dur}; log(`  ${c.name} ${f.stat.toUpperCase()} +${Math.round(v*100)}%`); }
+    if (f.rh && c.cls==="boxer") c.rhythm=Math.min(5,c.rhythm+1); return; }
+  if (f.t==="provoke"){ const ch = pct(gv(f.v)); if (Math.random()<ch){ B.provoke={who:c,t:num(gv(f.d))}; log(`  ศัตรูหันมาจ้อง ${c.name}`); } else log("  ท้าทัพไม่สำเร็จ"); return; }
+  if (f.t==="guard"){ const a = S.roster.find(x=>x.id===cmd.ally); a.guardBy={who:c,v:pct(gv(f.v))}; log(`  ${c.name} ยืนบัง ${a.name}`); return; }
+  if (f.t==="parry"){ c.parry = {ch:pct(gv(f.v)), dmg:pct(gv(f.c))}; log(`  ${c.name} ตั้งท่าปักษาแหวกรัง`); return; }
+  if (f.t==="finisher"){ const per = pct(gv(f.v)); const mult = 1 + per*c.rhythm; playerHit(c, e, mult, {crit:c.rhythm>=5}); c.rhythm=0; return; }
+  if (f.t==="heal"){ const v = pct(gv(f.v)) * (1+stat(c,"TEC")/200); const tg = f.tg==="party" ? partyChars().filter(alive) : [S.roster.find(x=>x.id===cmd.ally)];
+    tg.forEach(t=>{ if(!t||!alive(t)) return; const h=Math.round(maxHP(t)*v); t.hp=Math.min(maxHP(t),t.hp+h); log(`  ${t.name} +${h} HP`); }); return; }
+  if (f.t==="cleanse"){ const t = S.roster.find(x=>x.id===cmd.ally); const n = num(gv(s.columns[0])); const order=["stun","sleep","para","bind","blind","poison"]; let k=0;
+    for (const st of order){ if (k>=n) break; if (t.st[st]){ delete t.st[st]; k++; } } log(`  ${t.name} หายจากสถานะ ${k} อย่าง`); return; }
+  if (f.t==="revive"){ const t = S.roster.find(x=>x.id===cmd.ally); if (t && !alive(t)){ t.hp=Math.round(maxHP(t)*pct(gv(f.v))); log(`  <b class="green">เรียกขวัญ ${t.name} กลับมา!</b>`); } return; }
+  if (f.t==="ward"){ const t = S.roster.find(x=>x.id===cmd.ally); t.ward=num(gv(f.v)); log(`  ${t.name} ได้ยันต์กันคุณ ${t.ward} ครั้ง`); return; }
+  if (f.t==="regen"){ const t = S.roster.find(x=>x.id===cmd.ally); t.regen={v:pct(gv(f.v))*(1+stat(c,"TEC")/200),t:3}; log(`  ${t.name} ได้ยาต้มบำรุงธาตุ`); return; }
+  if (f.t==="grand"){ partyChars().forEach(t=>{ if (alive(t)) t.hp=maxHP(t); else t.hp=Math.round(maxHP(t)*pct(gv(f.v))); }); log("  มหาพิกัดโอสถ!"); return; }
+  if (f.t==="analyze"){ B.analyzed = pct(gv(f.v)); B.es.forEach(x=>["fire","water","wind","phys"].forEach(el=>reveal(x,el))); log(`  เพ่งกสิณ: เปิดเผยธาตุของศัตรูทุกตัว (บันทึกลงสมุดสัตว์) จุดอ่อน +${Math.round(B.analyzed*100)}%`); return; }
+  if (f.t==="status"){ const tg = f.tg==="all" ? B.es.filter(x=>x.hp>0) : [e]; tg.forEach(t=>{ if (!applyStatus(t, f.st, pct(gv(f.sc)), c, f.st==="poison"?{pw:pct(gv("Poison Damage"))}:null)) log(`  ${t.name} ต้านทาน`); }); return; }
+  if (f.t==="free"){ c.free=true; log("  คาถาถัดไปไม่เสีย MP"); return; }
+  if (f.t==="debuff"){ const v = pct(gv(f.v)); B.es.forEach(x=>{ if(x.hp>0){ x.st.atkDown={t:num(gv(f.d)),v}; } }); log(`  ATK ศัตรูทั้งหมด −${Math.round(v*100)}%`); return; }
+  if (f.t==="scare"){ if (e && !e.boss && e.tier==="ทั่วไป" && Math.random()<pct(gv(f.v))){ e.fled=true; e.scared=true; log(`  ${e.name} ตกใจหนีไป`); } else log("  ไม่ได้ผล"); return; }
+}
+function parseSkill(sk){ const [name, eff, cdS, chS] = sk; const mul = /(\d+)%/.exec(eff); const hits = /×\s*(\d)/.exec(eff);
+  return {name, eff, mult: /Physical|Magic/.test(eff)&&mul? +mul[1]/100 : 0, hits: hits?+hits[1]:1, all:/ทั้งปาร์ตี้/.test(eff), charge:/ชาร์จ/.test(eff),
+    mag:/Magic/.test(eff), summon:/เรียก/.test(eff), status:(/(Poison|Bind|Stun|Sleep|Blind|Paralyze)\s*(\d+)?%?/.exec(eff)||[]).slice(1),
+    cd:num(cdS)||0, chance:(num(chS)||100)/100, passive:/Passive/.test(eff), steal:/ขโมย/.test(eff), heal:/ฮีล|ฟื้น HP/.test(eff), buffDef:/DEF.*\+|ตั้งหลัก|ตั้งการ์ด|DEF ตัวเอง/.test(eff)&&!/ลด DEF/.test(eff), debuffDef:/DEF เป้าหมาย|DEF ปาร์ตี้ −/.test(eff), atkDown:/ATK ปาร์ตี้ −/.test(eff)}; }
+function doEnemy(e){
+  if (e.st.stun||e.st.sleep){ log(`${e.name} ขยับไม่ได้`); return; } if (e.st.para && Math.random()<.5){ log(`${e.name} ตัวชา`); return; }
+  // behavior: coward / thief flee
+  if (e.beh==="Coward" && e.hp<e.mhp*.5 && Math.random()<.5){ e.fled=true; log(`${e.name} หนีไป!`); return; }
+  if (e.stole && !e.st.bind){ e.fled=true; log(`${e.name} บินหนีไปพร้อม${e.stole}!`); return; }
+  const live = partyChars().filter(alive); if (!live.length) return;
+  if (e.charge){ const sk = e.charge; e.charge=null; log(`<b class="red">${e.name} ปล่อย ${sk.name}!</b>`); return enemyAttack(e, sk, live); }
+  const skills = e.mon.skills.map(parseSkill).filter(s=>!s.passive);
+  let chosen = null; for (const s of skills.sort(()=>Math.random()-.5)){ if ((e.cd[s.name]||0)>0) continue; if (Math.random()<s.chance){ chosen=s; break; } }
+  if (!chosen) chosen = skills.find(s=>s.mult>0 && !s.charge) || {name:"โจมตี",mult:1,hits:1};
+  if (chosen.cd) e.cd[chosen.name]=chosen.cd;
+  if (chosen.charge && !e.cancelled){ e.charge = Object.assign({}, chosen, {charge:false}); log(`<b class="red">${e.name} กำลังรวบรวมพลัง!</b> (ตั้งรับหรือขัดจังหวะ)`); return; }
+  e.cancelled = false;
+  if (chosen.summon){ const n = B.es.filter(x=>x.hp>0&&!x.fled).length; if (n<4){ B.es.push(enemyFrom(e.mon)); log(`${e.name} เรียกพวกมาเพิ่ม!`); renderCombat(); } return; }
+  if (chosen.steal){ const ks = Object.keys(S.mats).filter(k=>S.mats[k]>0); if (ks.length){ const k=pick(ks); S.mats[k]--; e.stole=k; log(`${e.name} ฉก${k}ไป 1 ชิ้น!`); } else log(`${e.name} ค้นกระเป๋าแต่ไม่เจออะไร`); return; }
+  if (chosen.heal){ B.es.filter(x=>x.hp>0).forEach(x=>x.hp=Math.min(x.mhp,x.hp+Math.round(x.mhp*.15))); log(`${e.name} ฟื้นฟูพวกพ้อง`); return; }
+  if (chosen.buffDef){ e.def = Math.round(e.def*1.3); log(`${e.name} ตั้งหลัก DEF เพิ่มขึ้น`); return; }
+  if (chosen.atkDown){ B.partyAtkDown = 0.2; log(`${e.name} คำรามข่ม ATK ปาร์ตี้ลดลง`); return; }
+  enemyAttack(e, chosen, live);
+}
+function enemyAttack(e, sk, live){
+  const targets = sk.all ? live : [pickTarget(e, live)];
+  for (const t of targets){ for (let h=0; h<(sk.hits||1); h++){ if (!alive(t)) break;
+    let eva = C.EVASION_BASE + stat(t,"AGI")*0.005 + passive(t,"eva")/100 - e.acc/100 + (e.st.blind?0.30:0); eva = clamp(eva, 0, C.EVASION_CAP);
+    if (Math.random()<eva){ log(`${t.name} หลบ ${e.name}`); continue; }
+    if (t.parry && !sk.mag && Math.random()<t.parry.ch){ log(`<span class="green">${t.name} ปัดแล้วสวน!</span>`); playerHit(t, e, t.parry.dmg); if (t.cls==="boxer") t.rhythm=Math.min(5,t.rhythm+1); continue; }
+    let victim = t; if (t.guardBy && alive(t.guardBy.who) && t.guardBy.who!==t){ victim = t.guardBy.who; }
+    const def = sk.mag ? mdef(victim) : pdef(victim);
+    let d = e.atk * (sk.mult||1) * (1 - (e.st.atkDown?e.st.atkDown.v:0)) * rnd(.9,1.1) * 100/(100+def);
+    if (victim.def) d *= .5; if (B.partyDR) d *= 1 - B.partyDR.v; d = Math.max(1, Math.round(d));
+    if (victim.hp - d <= 0 && passive(victim,"survive") && !victim.survived && Math.random()<passive(victim,"survive")/100){ d = victim.hp-1; victim.survived=true; log(`<b class="green">${victim.name} ใจทหารหาญ! รอดด้วย HP 1</b>`); }
+    victim.hp = Math.max(0, victim.hp - d);
+    if (victim.st.sleep) delete victim.st.sleep;
+    log(`${e.name} ${sk.name||'โจมตี'} → ${victim.name} <span class="red">${d}</span>${victim!==t?" (รับแทน "+t.name+")":""}${victim.def?" (ตั้งรับ)":""}`);
+    if (victim.cls==="boxer"){ if (Math.random()<passive(victim,"rhyhit")/100) victim.rhythm=Math.min(5,victim.rhythm+1); }
+    if (victim.def && passive(victim,"counter") && Math.random()<passive(victim,"counter")/100){ log(`${victim.name} ไม้ปัดสวน!`); playerHit(victim, e, .8); }
+    if (sk.status && sk.status[0] && alive(victim)){ const map={Poison:"poison",Bind:"bind",Stun:"stun",Sleep:"sleep",Blind:"blind",Paralyze:"para"}; const st=map[sk.status[0]]; const ch=(+sk.status[1]||60)/100*(1-Math.min(.5,stat(victim,"VIT")/400));
+      if (victim.ward>0){ victim.ward--; log(`  ยันต์กันคุณป้องกัน ${stTh(st)}`); } else if (Math.random()<ch){ victim.st[st]={t:{poison:3,stun:1,sleep:3,bind:2,para:3,blind:3}[st]+1}; log(`  ${victim.name} ติด ${stTh(st)}`); if (st==="stun"||st==="sleep") victim.rhythm=0; } }
+    if (!alive(victim)) log(`<b class="red">${victim.name} ล้มลง!</b>`);
+  } }
+  renderCombatLite();
+}
+function pickTarget(e, live){ if (B.provoke && alive(B.provoke.who)) return B.provoke.who;
+  if (e.beh==="Aggressive") return live.slice().sort((a,b)=>a.hp-b.hp)[0]; return pick(live); }
+function renderCombatLite(){ /* bars update at end of turn via renderCombat */ }
+function onEnemyDie(e, by){ if (e.dead) return; e.dead = true; e.hp = 0; log(`<b>${e.name} ถูกกำจัด</b>`);
+  S.kills[e.name]=(S.kills[e.name]||0)+1;
+  if (by && passive(by,"devour") && !e.boss){ S.hunger=Math.min(C.MAX_HUNGER,S.hunger+passive(by,"devour")); }
+  e.condOk = condDrop(e); }
+function condDrop(e){ const c = (e.mon.rare||[])[1]||""; if (/ธาตุไฟ/.test(c)) return e.lastEl==="fire"; if (/ธาตุน้ำ/.test(c)) return e.lastEl==="water"; if (/ธาตุลม/.test(c)) return e.lastEl==="wind";
+  if (/ภายใน 3 เทิร์น/.test(c)) return B.turn<=3; if (/Bind/.test(c)) return !!e.st.bind; if (/ก่อนหนี|ก่อนมันหนี/.test(c)) return true; if (/มอญยันหลัก|ยกเลิก/.test(c)) return !!e.cancelledOnce; return false; }
+function finishCombat(res){
+  paused = false; const pc = partyChars();
+  if (res==="lose"){ return gameOver(); }
+  let h = "";
+  if (res==="win"){
+    const avg = pc.reduce((a,c)=>a+c.lv,0)/pc.length; let exp=0, gold=0; const drops={};
+    let dropBonus = 0; pc.filter(alive).forEach(c=>dropBonus+=passive(c,"drop")/100); const luk = Math.max(...pc.filter(alive).map(c=>stat(c,"LUK")));
+    for (const e of B.es){ if (e.fled && !e.scared) continue; const mod = clamp(1+0.1*(e.lv-avg),0.2,2.0); exp += Math.max(1,Math.round(e.exp*mod*(e.scared?.5:1))); gold += e.gold;
+      if (e.scared) continue;
+      const [dn, dc] = e.mon.drop; if (Math.random() < pct(dc)*(1+luk/200+dropBonus)) drops[dn]=(drops[dn]||0)+ri(1,2);
+      if (e.condOk && e.mon.rare[0] && e.mon.rare[0]!=="-") drops[e.mon.rare[0]]=(drops[e.mon.rare[0]]||0)+1; }
+    if (B.opt.elite){ S.map.elite.alive=false; S.map.elite.respawn=S.day+3; }
+    S.gold += gold; for (const [k,v] of Object.entries(drops)) S.mats[k]=(S.mats[k]||0)+v;
+    const ups = [];
+    pc.filter(alive).forEach(c=>{ c.exp += exp; while (c.lv<C.LEVEL_CAP && c.exp >= (c.lv+1)**3){ const oldHP=maxHP(c); c.lv++; c.sp++; c.hp += maxHP(c)-oldHP; ups.push(`${c.name} Lv${c.lv}`); } });
+    pc.filter(alive).forEach(c=>{ const ph = passive(c,"postheal"); if (ph) pc.filter(alive).forEach(t=>t.hp=Math.min(maxHP(t),t.hp+Math.round(maxHP(t)*ph/100))); });
+    h = `<h2>ชนะ!</h2><p>EXP +${exp} · Gold +${gold}</p><p>ดรอป: ${Object.entries(drops).map(([k,v])=>k+" ×"+v).join(", ")||"-"}</p>${ups.length?`<p class="gold"><b>Level UP!</b> ${ups.join(", ")} (+1 SP)</p>`:''}`;
+    if (B.opt.boss){ const bonus = B.opt.early ? (31-S.day)*50 : 0; S.gold += bonus; S.chapterDone = true; addMinutes(30); overlay(""); return go("end"); }
+  } else h = "<h2>หนีสำเร็จ</h2>";
+  addMinutes(C.FIGHT_HOURS*60); S.screen="dungeon"; resetEnc();
+  overlay(h + `<div class="row"><button id="cls">ไปต่อ</button></div>`); $("#cls").onclick=()=>{ overlay(""); renderDungeon(); };
+}
+function gameOver(){ paused = true; overlay(`<h2 class="red">Game Over</h2><p>คณะเดินทางสิ้นชีพในป่าหิมพานต์…</p><div class="row"><button id="ld">โหลดเซฟล่าสุด (ศาลาพระ)</button></div>`);
+  $("#ld").onclick = () => { overlay(""); doLoad(); }; }
+function renderEnd(){ $("#screen").innerHTML = `<div class="panel orn"><h2>จบ Chapter 1 — ${esc(CH.name)}</h2><p>หมอกลงแล้วจางหาย เจ้าป่าถูกขับไล่ คณะยกค่ายตามลำน้ำเข้าไปลึกขึ้น…</p>
+  <p class="small">วันที่ ${S.day} · Gold ${S.gold} · แผนที่ ${mapCompletion()}% · ล้มศัตรู ${Object.values(S.kills).reduce((a,b)=>a+b,0)} ตัว</p>${art("CG ปิด Chapter: คณะเดินขบวนตามลำน้ำ มองเห็นหมอกด้านหลัง")}
+  <p>Chapter 2: ลุ่มน้ำปัญจมหานที — ยังไม่อยู่ใน Prototype</p><button id="again">เริ่มใหม่</button></div>`; $("#again").onclick=()=>{ S=newState(); bossForced=false; go("title"); }; }
+
+/* ================================================================ SAVE */
+let SAVE = null;
+function doSave(silent){ SAVE = JSON.stringify(S); try { localStorage.setItem("himmaparn_proto_save", SAVE); } catch(e){} if (!silent) toast("บันทึกเกมแล้ว"); }
+function doLoad(){ let s = SAVE; try { s = s || localStorage.getItem("himmaparn_proto_save"); } catch(e){} if (!s){ S = newState(); return go("title"); }
+  S = JSON.parse(s); S.map.inside=false; bossForced=false; paused=false; document.body.classList.toggle("art", S.art); go("camp"); }
+
+/* ================================================================ DEBUG */
+function debugPanel(){ overlay(`<h2>Debug (สำหรับทีม)</h2><div class="row">
+  <button id="d1">+1 Lv ปาร์ตี้</button><button id="d5">+5 Lv ปาร์ตี้</button><button id="dg">+500 Gold</button><button id="dt">+6 ชม.</button><button id="dd">ไปวันที่ 30</button>
+  <button id="dm">เปิดแผนที่ทั้งหมด</button><button id="df">วาดแผนที่ให้ครบ (ทดสอบ %)</button><button id="dh">Hunger เต็ม</button><button id="dmat">+วัตถุดิบคราฟ</button><button id="db">ปลดล็อกสัตว์อสูร</button><button id="dmi">ภารกิจหลัก +1</button></div>
+  <p class="small">ตัวเลขทั้งหมดมาจาก himmaparn_data.json (สร้างจาก GDD v2) · 1 ชม. ในเกม = ${C.SEC_PER_HOUR} วินาทีขณะสำรวจ</p>${closeBtn}`); bindClose();
+  const on=(id,fn)=>{$(id).onclick=()=>{fn();topbar();toast("ok");};};
+  on("#d1",()=>partyChars().forEach(c=>{setLevel(c,c.lv+1);c.hp=maxHP(c);c.mp=maxMP(c);})); on("#d5",()=>partyChars().forEach(c=>{setLevel(c,c.lv+5);c.hp=maxHP(c);c.mp=maxMP(c);}));
+  on("#dg",()=>S.gold+=500); on("#dt",()=>addMinutes(360)); on("#dd",()=>{S.day=30;});
+  on("#dm",()=>{ if(S.map) S.map.seen.forEach(r=>r.fill(true)); });
+  on("#df",()=>{ const m=S.map; if(!m)return; for(let y=0;y<m.N;y++)for(let x=0;x<m.N;x++){ if(m.rock[y][x])continue; m.seen[y][x]=true; m.draw.floor[y][x]=m.draw.floor[y][x]||1; } for(let y=0;y<=m.N;y++)for(let x=0;x<m.N;x++) m.draw.wN[y][x]=m.wallN[y][x]; for(let y=0;y<m.N;y++)for(let x=0;x<=m.N;x++) m.draw.wW[y][x]=m.wallW[y][x]; });
+  on("#dh",()=>S.hunger=C.MAX_HUNGER); on("#dmat",()=>{ ["งาโลโต","ขนกิหมี","หนังติณสีห์","เนื้อทิศากร","สมุนไพรป่า"].forEach(k=>S.mats[k]=(S.mats[k]||0)+3); });
+  on("#db",()=>{S.beastUnlocked=true;S.candDay=0;}); on("#dmi",()=>{ if(S.mission<3) S.mission++; });
+}
+
+/* ================================================================ LOOP & INPUT */
+function loop(t){ const dt = lastT ? (t-lastT)/1000 : 0; lastT = t;
+  if (S && S.screen==="dungeon" && !paused && !$("#ov").innerHTML){ const before = Math.floor(S.min);
+    addMinutes(dt * 60 / C.SEC_PER_HOUR); if (Math.floor(S.min)!==before && Math.floor(S.min)%5===0) topbar(); }
+  requestAnimationFrame(loop); }
+document.addEventListener("keydown", ev => { if (!S) return; if (ev.target.tagName==="INPUT") return;
+  const k = ev.key.toLowerCase(); const map = {arrowup:"w",arrowdown:"s",arrowleft:"a",arrowright:"d"};
+  if (k==="m" && S.screen==="dungeon"){ if (fullOpen){ fullOpen=false; paused=false; overlay(""); renderDungeon(); } else openFullMap(); return; }
+  if (k==="escape"){ if ($("#ov").innerHTML){ if (fullOpen){ fullOpen=false; paused=false; } overlay(""); render(); } else if (S.screen==="dungeon"||S.screen==="camp") go("party"); return; }
+  if ((k===" "||k==="enter") && S.screen==="dungeon" && !$("#ov").innerHTML){ ev.preventDefault(); act(); return; }
+  if (S.screen==="dungeon" && !$("#ov").innerHTML){ const kk = map[k]||k; if ("wasdqe".includes(kk) && kk.length===1){ ev.preventDefault(); key(kk); } } });
+
+S = newState(); render(); requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>

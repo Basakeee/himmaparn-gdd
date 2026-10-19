@@ -487,7 +487,7 @@ function mapCompletion(){ const m = S.map; if (!m) return 0; let tot=0, ok=0;
 /* ================================================================ DUNGEON */
 let paused = false, lastT = 0, mapTool = {mode:"floor", color:1, icon:"ประตู"};
 const DIRV = [[0,-1],[1,0],[0,1],[-1,0]], DIRN = ["N","E","S","W"];
-function enterDungeon(){ const m = S.map; m.inside = true; m.px = m.start[0]; m.py = m.start[1]; m.dir = 0; resetEnc(); markSeen(); if (m.autoFloor) m.draw.floor[m.py][m.px] = m.draw.floor[m.py][m.px]||1; go("dungeon"); }
+function enterDungeon(){ const m = S.map; m.inside = true; m.px = m.start[0]; m.py = m.start[1]; m.dir = 0; resetEnc(); markSeen(); (m.visited||(m.visited={}))[m.px+","+m.py] = 1; if (m.autoFloor) m.draw.floor[m.py][m.px] = m.draw.floor[m.py][m.px]||1; go("dungeon"); }
 function resetEnc(){ const m = S.map; let n = ri(C.ENCOUNTER_STEPS[0], C.ENCOUNTER_STEPS[1]); if (isNight()) n = Math.ceil(n*C.NIGHT_ENCOUNTER_MULT); m.encLeft = m.nextEnc = n; }
 function renderDungeon(){
   $("#screen").innerHTML = `<div class="dun"><div class="panel" style="padding:6px"><canvas id="view" width="640" height="480"></canvas>
@@ -524,6 +524,7 @@ function step(){
   S.hunger = Math.max(0, S.hunger - hungerCost());
   if (S.hunger<=0){ partyChars().filter(alive).forEach(c=>c.hp=Math.max(0,c.hp-Math.ceil(maxHP(c)*C.STARVE_HP_PCT/100))); msg('<span class="red">อดอาหาร! เสีย HP ทุกก้าว</span>');
     if (!partyChars().some(alive)) return gameOver(); }
+  (m.visited||(m.visited={}))[m.px+","+m.py] = 1;
   if (m.draw && m.autoFloor && !m.draw.floor[m.py][m.px]) m.draw.floor[m.py][m.px] = 1;
   markSeen(); moveElite();
   // flags
@@ -630,9 +631,10 @@ function drawMapCanvas(cv, cells, ox, oy, showPlayer){
   const g = cv.getContext("2d"), m = S.map, W = cv.width, cs = W / cells;
   g.fillStyle = "#111"; g.fillRect(0,0,W,W);
   for (let j=0;j<cells;j++) for (let i=0;i<cells;i++){ const x=ox+i, y=oy+j; if (x<0||y<0||x>=m.N||y>=m.N) continue;
-    const sn = m.seen[y][x], fc = m.draw.floor[y][x];
-    g.fillStyle = fc ? FCOL[fc] : (sn ? "#2a2a24" : "#161614"); g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2);
-    if (fc && !sn){ g.fillStyle="rgba(0,0,0,.35)"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2); } // pre-drawn (not yet visited)
+    const vis = !!(m.visited && m.visited[x+","+y]), fc = m.draw.floor[y][x];
+    // only stepped-on cells (or player drawings) get colour; merely seeing a cell does not reveal it
+    g.fillStyle = fc ? FCOL[fc] : "#161614"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2);
+    if (fc && !vis){ g.fillStyle="rgba(0,0,0,.35)"; g.fillRect(i*cs+1,j*cs+1,cs-2,cs-2); } // pre-drawn (not yet visited)
     const ic = m.draw.icon[x+","+y]; if (ic){ g.fillStyle="#fff"; g.font=`${cs*.6}px sans-serif`; g.textAlign="center"; g.fillText(ICONCH[ic]||"?", i*cs+cs/2, j*cs+cs*.72); g.textAlign="left"; }
     if (m.draw.memo[x+","+y]){ g.fillStyle="#f0d060"; g.fillRect(i*cs+cs-5,j*cs+1,4,4); } }
   // grid lines on every cell so the player can draw anywhere

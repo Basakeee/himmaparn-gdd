@@ -1353,10 +1353,11 @@ html{scroll-behavior:smooth}
 <script>
 (function(){
   var tab='gdd', aud='all';
+  window.HMRunMermaid=function(){if(window._mmDone||!window.mermaid)return;window._mmDone=true;try{mermaid.run({querySelector:'#page-dev .mermaid'})}catch(e){console.error(e)}};
   function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
   function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
   function setTab(t){tab=t;['gdd','art','dev'].forEach(function(x){document.getElementById('page-'+x).hidden=(x!==t);
-    document.getElementById('tab-'+x).setAttribute('aria-pressed',x===t)});document.getElementById('toc').parentNode.hidden=(t!=='gdd');document.getElementById('wrap').classList.toggle('full',t!=='gdd');document.querySelector('.aud').hidden=(t!=='gdd');store('hm_tab',t);if(t==='art'&&window.HMArt&&!window._artDone){window._artDone=true;try{HMArt.renderAll(document.getElementById('page-art'))}catch(e){console.error(e)}}}
+    document.getElementById('tab-'+x).setAttribute('aria-pressed',x===t)});document.getElementById('toc').parentNode.hidden=(t!=='gdd');document.getElementById('wrap').classList.toggle('full',t!=='gdd');document.querySelector('.aud').hidden=(t!=='gdd');store('hm_tab',t);if(t==='dev'&&window.HMRunMermaid)HMRunMermaid();if(t==='art'&&window.HMArt&&!window._artDone){window._artDone=true;try{HMArt.renderAll(document.getElementById('page-art'))}catch(e){console.error(e)}}}
   function setAud(a){aud=a;document.querySelectorAll('.aud button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.aud===a)});
     document.querySelectorAll('#page-gdd .gsec, #toc .t1').forEach(function(s){var ok=a==='all'||(s.dataset.aud||'').indexOf(a)>=0;s.classList.toggle('hidden-by-filter',!ok)});store('hm_aud',a)}
   document.querySelectorAll('.tabs button').forEach(function(b){b.addEventListener('click',function(){setTab(b.dataset.tab)})});
@@ -2773,7 +2774,7 @@ html{scroll-behavior:smooth}
 </script>
 <script>try{if(!document.getElementById('page-art').hidden){window._artDone=true;HMArt.renderAll(document.getElementById('page-art'))}}catch(e){console.error(e)}</script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
-<script>try{mermaid.initialize({startOnLoad:true,theme:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'default')})}catch(e){}</script>
+<script>try{mermaid.initialize({startOnLoad:false,theme:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'default')});if(!document.getElementById('page-dev').hidden&&window.HMRunMermaid)HMRunMermaid()}catch(e){}</script>
 
 </body>
 </html>
